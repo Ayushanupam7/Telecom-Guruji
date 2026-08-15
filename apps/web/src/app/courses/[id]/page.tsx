@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BookOpen, PlayCircle, CheckCircle, Award, User, Sparkles, LogOut, X, AlertTriangle, CreditCard, Lock, QrCode, Copy, Check, Signal, BarChart3, CheckCircle2, ShieldCheck, MapPin, GitCommit, Layers, Milestone, FileText, HelpCircle } from 'lucide-react';
