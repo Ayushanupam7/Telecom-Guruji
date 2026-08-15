@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20.11.0
+      - key: NEXT_DISABLE_SWC_LOCKFILE_PATCH
+        value: "1"
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -16,3 +18,4 @@ services:
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
+

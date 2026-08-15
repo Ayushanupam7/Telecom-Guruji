@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "next build",
+    "build": "NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "npx tsc --noEmit"
