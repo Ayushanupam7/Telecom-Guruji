@@ -1,0 +1,30 @@
+{
+  "name": "signalhub",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SignalHub - AI-Powered Learning and Course Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:web",
+    "web": "npm run dev:web",
+    "dev:web": "npm run dev --workspace=@signalhub/web",
+    "dev:mobile": "npm run start --workspace=@signalhub/mobile",
+    "build:web": "npm run build --workspace=@signalhub/web",
+    "build:packages": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:migrate": "supabase db reset"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3"
+  }
+}

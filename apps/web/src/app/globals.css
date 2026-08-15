@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    font-family: var(--font-roboto), 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: -0.011em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: var(--font-roboto-mono), 'Roboto Mono', monospace;
+  }
+}
+
+/* HIDE SCROLLBARS GLOBALLY ACROSS ALL BROWSERS (KEPT FUNCTIONAL) */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none !important;  /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* STRICT PURE BLACK & WHITE MONOCHROME THEME */
+.dark-mode {
+  --foreground-rgb: 255, 255, 255;
+  --bg-color: #000000;
+  background-color: #000000;
+  color: #ffffff;
+  min-height: 100vh;
+}
+
+.dark-mode .glass-panel {
+  background: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 0.75rem;
+}
+
+.light-mode {
+  --foreground-rgb: 0, 0, 0;
+  --bg-color: #ffffff;
+  background-color: #ffffff;
+  color: #000000;
+  min-height: 100vh;
+}
+
+.light-mode .glass-panel {
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border-radius: 0.75rem;
+  color: #000000;
+}
+
+.light-mode .glass-panel h1,
+.light-mode .glass-panel h2,
+.light-mode .glass-panel h3,
+.light-mode .glass-panel p,
+.light-mode .glass-panel span {
+  color: #000000;
+}
+
+.light-mode header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+/* MONOCHROME BUTTONS */
+.glass-button {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #27272a;
+  transition: all 0.2s ease-in-out;
+}
+
+.dark-mode .glass-button {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #e4e4e7;
+}
+
+.glass-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+@keyframes infiniteSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-infinite-slide {
+  animation: infiniteSlide 1.5s infinite linear;
+}
+
+/* Print CSS for HD Certificate Output */
+@media print {
+  header, footer, nav, .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #certificate-print-area {
+    border: 4px solid #000000 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+}
