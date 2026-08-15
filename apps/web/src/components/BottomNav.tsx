@@ -8,7 +8,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 
 export function BottomNav() {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || '';
   const { theme } = useTheme();
   const { user } = useAuth();
   const isLight = theme === 'light';
