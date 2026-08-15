@@ -238,7 +238,7 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-8 py-4 font-sans pb-12">
       
       {/* HERO AVATAR BANNER */}
-      <div className={`p-8 rounded-3xl border transition-all duration-300 ${
+      <div className={`p-5 sm:p-8 rounded-3xl border transition-all duration-300 ${
         isLight
           ? 'bg-white border-slate-200/80 shadow-xl shadow-slate-200/60 text-slate-900'
           : 'glass-panel border-slate-800 bg-slate-900/80 shadow-2xl text-white'
@@ -315,12 +315,12 @@ export default function ProfilePage() {
       </div>
 
       {/* 📚 ENROLLED COURSES & ACTIVE CREDENTIALS ROW TABLE */}
-      <div className={`p-6 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
+      <div className={`p-4 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
         isLight
           ? 'bg-white border-zinc-300 shadow-xl text-black'
           : 'bg-zinc-950 border-zinc-700 shadow-2xl text-white'
       }`}>
-        <div className="flex items-center justify-between border-b-2 border-zinc-200 dark:border-zinc-800 pb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b-2 border-zinc-200 dark:border-zinc-800 pb-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center shrink-0 shadow-md">
               <BookOpen className="w-5 h-5" />
@@ -335,7 +335,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-full border bg-black text-white dark:bg-white dark:text-black border-zinc-800 dark:border-zinc-200">
+          <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-full border bg-black text-white dark:bg-white dark:text-black border-zinc-800 dark:border-zinc-200 self-start sm:self-auto shrink-0">
             {enrolledRows.length} Enrolled Rows
           </span>
         </div>
@@ -399,7 +399,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* RIGHT ACTION & PROGRESS MASTERY METER COLUMN */}
-                <div className="shrink-0 space-y-2 text-right sm:w-56">
+                <div className="shrink-0 space-y-2 text-left sm:text-right w-full sm:w-56">
                   <div className="flex items-center justify-between text-xs font-mono font-black">
                     <span className="text-zinc-500 uppercase text-[10px] tracking-wider">Mastery Meter</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -427,7 +427,7 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  <div className="pt-1 flex items-center justify-end space-x-2 font-mono">
+                  <div className="pt-1 flex items-center justify-start sm:justify-end space-x-2 font-mono">
                     {row.progress_percent >= 100 ? (
                       <Link
                         href={`/certificate/${row.course_id}`}
@@ -457,7 +457,7 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* CARD 1: PERSONAL INFORMATION & EDIT FORM */}
-        <div className={`p-6 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
+        <div className={`p-5 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
           isLight ? 'bg-white border-slate-200/80 shadow-lg text-slate-900' : 'glass-panel border-slate-800 bg-slate-900/60 text-white shadow-xl'
         }`}>
           <div className="flex items-center justify-between">
@@ -642,7 +642,7 @@ export default function ProfilePage() {
         </div>
 
         {/* CARD 2: THEME & APPEARANCE STUDIO (SYNCED TO SUPABASE) */}
-        <div className={`p-6 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
+        <div className={`p-5 sm:p-7 rounded-3xl border space-y-5 transition-all duration-300 ${
           isLight ? 'bg-white border-slate-200/80 shadow-lg text-slate-900' : 'glass-panel border-slate-800 bg-slate-900/60 text-white shadow-xl'
         }`}>
           <div className="flex items-center space-x-2.5">
@@ -710,7 +710,7 @@ export default function ProfilePage() {
       </div>
 
       {/* CARD 3: SECURITY & PASSWORD MANAGEMENT */}
-      <div className={`p-6 sm:p-7 rounded-3xl border space-y-4 transition-all duration-300 ${
+      <div className={`p-5 sm:p-7 rounded-3xl border space-y-4 transition-all duration-300 ${
         isLight ? 'bg-white border-slate-200/80 shadow-lg text-slate-900' : 'glass-panel border-slate-800 bg-slate-900/60 text-white shadow-xl'
       }`}>
         <div className="flex items-center space-x-2.5">
@@ -725,7 +725,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
           <div className="space-y-1 text-center sm:text-left">
             <h3 className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
               Reset Password Link
@@ -739,7 +739,7 @@ export default function ProfilePage() {
             type="button"
             disabled={sendingReset}
             onClick={handleTriggerPasswordReset}
-            className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xs shadow-md shadow-sky-500/20 transition-all flex items-center space-x-1.5 shrink-0"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-xs shadow-md shadow-sky-500/20 transition-all flex items-center justify-center space-x-1.5 shrink-0"
           >
             <KeyRound className="w-4 h-4" />
             <span>{sendingReset ? 'Sending Email...' : 'Send Password Reset Email'}</span>
@@ -826,20 +826,20 @@ export default function ProfilePage() {
       </div>
 
       {/* CARD 4: SESSION MANAGEMENT & DANGER ZONE */}
-      <div className={`p-6 sm:p-7 rounded-3xl border space-y-4 transition-all duration-300 ${
+      <div className={`p-5 sm:p-7 rounded-3xl border space-y-4 transition-all duration-300 ${
         isLight ? 'bg-white border-slate-200/80 shadow-lg text-slate-900' : 'glass-panel border-slate-800 bg-slate-900/60 text-white shadow-xl'
       }`}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className={`text-sm font-extrabold ${isLight ? 'text-slate-900' : 'text-white'}`}>Session & Account Actions</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">Sign out or manage permanent account deletion.</p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:space-x-3 w-full sm:w-auto justify-start sm:justify-end">
             <button
               onClick={logout}
               type="button"
-              className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs flex items-center space-x-2 shadow-md transition-all"
+              className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs flex items-center space-x-2 shadow-md transition-all flex-1 sm:flex-initial justify-center"
             >
               <LogOut className="w-4 h-4 text-sky-400" />
               <span>Sign Out</span>
@@ -848,7 +848,7 @@ export default function ProfilePage() {
             <button
               onClick={() => setShowDeleteModal(true)}
               type="button"
-              className="px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 font-bold text-xs flex items-center space-x-1.5 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 font-bold text-xs flex items-center space-x-1.5 transition-all flex-1 sm:flex-initial justify-center"
             >
               <Trash2 className="w-4 h-4 text-rose-500" />
               <span>Delete Account</span>
