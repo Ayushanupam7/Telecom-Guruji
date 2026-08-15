@@ -136,7 +136,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-zinc-50 dark:bg-zinc-950 text-black dark:text-white flex items-center justify-center p-4 overflow-y-auto font-sans relative">
+    <div className="min-h-screen w-full bg-zinc-50 dark:bg-zinc-950 text-black dark:text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-y-auto">
       {/* 📡 HIGH-END TELECOM & AI GRAPHICS BACKGROUND LAYER 🌐 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden select-none">
         {/* 1. Base Gradient Background */}
@@ -187,7 +187,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center z-10 my-auto">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center justify-center z-10 my-auto">
         
         {/* LEFT SIDE: COMPACT APP DETAILS (BLACK & WHITE) */}
         <div className="lg:col-span-5 space-y-4 text-left hidden lg:block pr-2">
@@ -250,8 +250,8 @@ export default function AuthPage() {
         </div>
 
         {/* RIGHT SIDE: MONOCHROME BLACK & WHITE LOGIN CARD */}
-        <div className="lg:col-span-7 flex justify-center">
-          <div className="w-full max-w-[460px] p-6 sm:p-8 rounded-3xl border border-zinc-300 bg-white text-black shadow-2xl relative transition-all duration-300">
+        <div className="w-full lg:col-span-7 flex justify-center items-center">
+          <div className="w-full max-w-[450px] p-5 sm:p-8 rounded-3xl border border-zinc-300 bg-white text-black shadow-2xl relative transition-all duration-300 mx-auto">
 
             {/* Card Header: Brand Icon */}
             <div className="flex items-center justify-between mb-4">
@@ -415,19 +415,19 @@ export default function AuthPage() {
                       <button
                         type="button"
                         onClick={loginWithGoogle}
-                        className="py-2.5 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-xs font-bold flex items-center justify-center space-x-2 transition-all shadow-xs"
+                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs"
                       >
-                        <GoogleIcon className="w-3.5 h-3.5" />
-                        <span>Google Sign In</span>
+                        <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Google Sign In</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setShowSSOModal(true)}
-                        className="py-2.5 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-xs font-bold flex items-center justify-center space-x-2 transition-all shadow-xs"
+                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs"
                       >
-                        <Building2 className="w-3.5 h-3.5 text-black" />
-                        <span>Enterprise SSO</span>
+                        <Building2 className="w-3.5 h-3.5 text-black shrink-0" />
+                        <span className="truncate">Enterprise SSO</span>
                       </button>
                     </div>
                   </div>
