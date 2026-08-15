@@ -17,7 +17,8 @@ interface HeaderProps {
 }
 
 export function Header({ }: HeaderProps) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || '';
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { dict } = useLanguage();

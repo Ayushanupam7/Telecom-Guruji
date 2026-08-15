@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 
 export function Footer() {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || '';
   const { theme } = useTheme();
   const isLight = theme === 'light';
 

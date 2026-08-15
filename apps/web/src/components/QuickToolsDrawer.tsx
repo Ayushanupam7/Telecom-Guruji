@@ -10,7 +10,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import { SUPPORTED_LANGUAGES } from '@signalhub/shared';
 
 export function QuickToolsDrawer() {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || '';
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme, toggleTheme } = useTheme();
