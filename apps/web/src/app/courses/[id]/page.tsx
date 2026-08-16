@@ -319,16 +319,16 @@ export default function CourseDetailsPage({ params }: { params?: { id?: string }
   return (
     <div className="space-y-8 max-w-5xl mx-auto font-sans">
       {/* Course Banner */}
-      <div className={`p-6 sm:p-8 rounded-3xl border-2 transition-all ${
+      <div className={`p-4 sm:p-6 lg:p-8 rounded-3xl border-2 transition-all ${
         isLight ? 'bg-white border-zinc-300 shadow-xl text-black' : 'bg-zinc-950 border-zinc-700 shadow-2xl text-white'
-      } space-y-6`}>
+      } space-y-5 sm:space-y-6`}>
         {/* COURSE MEDIA THUMBNAIL (IMAGE / VIDEO) */}
         <CourseThumbnail
           thumbnailUrl={courseData.thumbnail_url}
           thumbnailType={courseData.thumbnail_type}
           category={courseData.category}
           title={courseData.title}
-          className="w-full h-64 sm:h-80 rounded-2xl shadow-xl border-2 border-black dark:border-white"
+          className="w-full h-48 sm:h-72 lg:h-80 rounded-2xl shadow-xl border-2 border-black dark:border-white"
           autoPlayVideo={false}
         />
 

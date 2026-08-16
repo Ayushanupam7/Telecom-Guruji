@@ -43,6 +43,7 @@ export default function StudentLearningPlayerPage({
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'slides' | 'quiz' | 'final_assessment'>('slides');
+  const [mobileOutlineOpen, setMobileOutlineOpen] = useState(false);
 
   // Attention / Active Student Verification Pop-up state
   const [showAttentionModal, setShowAttentionModal] = useState(false);
@@ -447,11 +448,34 @@ export default function StudentLearningPlayerPage({
         </div>
       </div>
 
+      {/* MOBILE COURSE OUTLINE TOGGLE BUTTON (MOBILE ONLY) */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOutlineOpen(!mobileOutlineOpen)}
+          className={`w-full p-4 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-between transition-all cursor-pointer ${
+            isLight ? 'bg-white border-zinc-300 text-black shadow-md' : 'bg-zinc-950 border-zinc-700 text-white shadow-xl'
+          }`}
+        >
+          <div className="flex items-center space-x-2.5 truncate pr-2">
+            <BookOpen className="w-4 h-4 shrink-0 text-black dark:text-white" />
+            <span className="truncate">Syllabus & Modules ({modules.length})</span>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700">
+              {mobileOutlineOpen ? 'Hide Syllabus ▲' : 'View Syllabus ▼'}
+            </span>
+          </div>
+        </button>
+      </div>
+
       {/* MAIN TWO-COLUMN LEARNING INTERFACE */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* 🖤 LEFT COLUMN: MODULE NAVIGATION & SLIDE LIST (LIGHT & DARK MONOCHROME) 🤍 */}
-        <div className={`p-5 rounded-3xl border-2 space-y-4 lg:col-span-1 h-fit ${
+        <div className={`p-4 sm:p-5 rounded-3xl border-2 space-y-4 lg:col-span-1 h-fit ${
+          mobileOutlineOpen ? 'block' : 'hidden lg:block'
+        } ${
           isLight
             ? 'bg-white border-zinc-300 shadow-md text-black'
             : 'bg-zinc-950 border-zinc-400 text-white shadow-xl'
@@ -815,6 +839,51 @@ export default function StudentLearningPlayerPage({
           )}
         </div>
       </div>
+
+      {/* MOBILE STICKY QUICK SLIDE NAVIGATION BAR */}
+      {activeTab === 'slides' && (
+        <div className={`lg:hidden fixed bottom-14 left-0 right-0 z-40 p-3 border-t backdrop-blur-xl flex items-center justify-between gap-3 ${
+          isLight ? 'bg-white/95 border-zinc-200 shadow-2xl text-black' : 'bg-black/95 border-zinc-800 shadow-2xl text-white'
+        }`}>
+          <button
+            type="button"
+            disabled={currentSlideIndex === 0 && currentModuleIndex === 0}
+            onClick={() => {
+              if (currentSlideIndex > 0) {
+                setCurrentSlideIndex((prev) => prev - 1);
+              } else if (currentModuleIndex > 0) {
+                setCurrentModuleIndex((prev) => prev - 1);
+                setCurrentSlideIndex((modules[currentModuleIndex - 1]?.slides?.length || 1) - 1);
+              }
+            }}
+            className="flex-1 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 text-black dark:text-white font-bold text-xs disabled:opacity-40 flex items-center justify-center space-x-1 active:scale-95 cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Prev Slide</span>
+          </button>
+
+          <span className="text-[11px] font-mono font-bold text-zinc-500 shrink-0">
+            M{currentModuleIndex + 1} • S{currentSlideIndex + 1}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => {
+              const currentModSlides = currentModule?.slides?.length || 1;
+              if (currentSlideIndex < currentModSlides - 1) {
+                setCurrentSlideIndex((prev) => prev + 1);
+              } else if (currentModuleIndex < modules.length - 1) {
+                setCurrentModuleIndex((prev) => prev + 1);
+                setCurrentSlideIndex(0);
+              }
+            }}
+            className="flex-1 py-3 rounded-xl bg-black dark:bg-white text-white dark:text-black font-extrabold text-xs flex items-center justify-center space-x-1 active:scale-95 shadow-md cursor-pointer"
+          >
+            <span>Next Slide</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* CHECKOUT MODAL FOR UNLOCKING PAID COURSE */}
       {showCheckoutModal && (
