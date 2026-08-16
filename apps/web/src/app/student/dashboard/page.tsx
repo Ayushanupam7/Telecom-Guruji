@@ -481,21 +481,21 @@ export default function StudentDashboardPage() {
                     : 'bg-zinc-950 border-zinc-400 shadow-xl hover:border-white'
                 }`}
               >
-                {/* THUMBNAIL */}
-                <div className="relative">
+                {/* THUMBNAIL - LINKS TO DETAILS PAGE FIRST */}
+                <Link href={`/courses/${c.course_id}`} className="relative block group">
                   <CourseThumbnail
                     thumbnailUrl={c.thumbnail_url}
                     thumbnailType={c.thumbnail_type}
                     category={c.category}
                     title={c.title}
-                    className="w-full h-44 rounded-2xl shadow-sm"
+                    className="w-full h-44 rounded-2xl shadow-sm group-hover:scale-[1.01] transition-transform"
                   />
                   <span className="absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-black text-white dark:bg-white dark:text-black shadow-md border border-zinc-700 dark:border-zinc-300">
                     {dict.active || 'Active'} ✓
                   </span>
-                </div>
+                </Link>
 
-                {/* CARD CONTENT */}
+                {/* CARD CONTENT - LINKS TO DETAILS PAGE FIRST */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white text-[10px] font-mono font-bold uppercase border border-zinc-200 dark:border-zinc-800">
@@ -506,9 +506,11 @@ export default function StudentDashboardPage() {
                     </span>
                   </div>
 
-                  <h3 className={`text-base font-black line-clamp-2 ${isLight ? 'text-black' : 'text-white'}`}>
-                    {translateCourseTitle(c.slug || c.course_id, c.title, language)}
-                  </h3>
+                  <Link href={`/courses/${c.course_id}`} className="block">
+                    <h3 className={`text-base font-black line-clamp-2 hover:underline ${isLight ? 'text-black' : 'text-white'}`}>
+                      {translateCourseTitle(c.slug || c.course_id, c.title, language)}
+                    </h3>
+                  </Link>
 
                   <div className="text-[11px] font-mono font-bold text-zinc-500">
                     {dict.instructor || 'Instructor'}: <span className="text-black dark:text-white">{c.instructor_name}</span>

@@ -17,6 +17,7 @@ import { getCurrencySymbol, formatCoursePrice } from '@/lib/currency';
 import { CourseThumbnail } from '@/components/CourseThumbnail';
 import { InstantEnrollmentModal } from '@/components/InstantEnrollmentModal';
 import { PageLoader } from '@/components/PageLoader';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 export default function CourseDetailsPage({ params }: { params?: { id?: string } }) {
   const { user } = useAuth();
@@ -317,7 +318,16 @@ export default function CourseDetailsPage({ params }: { params?: { id?: string }
   }
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto font-sans">
+    <div className="space-y-6 max-w-5xl mx-auto font-sans">
+      {/* 🧭 BREADCRUMBS NAVIGATION MAPPING 🧭 */}
+      <Breadcrumbs
+        items={[
+          { label: 'Browse', href: '/courses' },
+          { label: courseData.category || 'Courses', href: `/courses` },
+          { label: translateCourseTitle(courseData.slug || courseData.id || targetId, courseData.title, language) }
+        ]}
+      />
+
       {/* Course Banner */}
       <div className={`p-4 sm:p-6 lg:p-8 rounded-3xl border-2 transition-all ${
         isLight ? 'bg-white border-zinc-300 shadow-xl text-black' : 'bg-zinc-950 border-zinc-700 shadow-2xl text-white'

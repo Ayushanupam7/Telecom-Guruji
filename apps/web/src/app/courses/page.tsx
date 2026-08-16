@@ -18,6 +18,7 @@ import { CourseThumbnail } from '@/components/CourseThumbnail';
 import { InstantEnrollmentModal } from '@/components/InstantEnrollmentModal';
 import { getInstructorNameForCourse } from '@/lib/mockData';
 import { PageLoader } from '@/components/PageLoader';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 export default function CoursesPage() {
   const { theme } = useTheme();
@@ -477,14 +478,16 @@ export default function CoursesPage() {
                 }`}
               >
                 <div className="space-y-3">
-                  {/* MEDIA THUMBNAIL */}
-                  <CourseThumbnail
-                    thumbnailUrl={course.thumbnail_url}
-                    thumbnailType={course.thumbnail_type}
-                    category={course.category}
-                    title={course.title}
-                    className="w-full h-40 rounded-2xl shadow-sm"
-                  />
+                  {/* MEDIA THUMBNAIL - LINKS TO DETAILS PAGE FIRST */}
+                  <Link href={`/courses/${course.slug || course.id}`} className="block group">
+                    <CourseThumbnail
+                      thumbnailUrl={course.thumbnail_url}
+                      thumbnailType={course.thumbnail_type}
+                      category={course.category}
+                      title={course.title}
+                      className="w-full h-40 rounded-2xl shadow-sm group-hover:scale-[1.01] transition-transform"
+                    />
+                  </Link>
 
                   <div className="flex items-center justify-between gap-1 pt-0.5">
                     <span className="px-2.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white text-[9px] font-mono font-bold uppercase border border-zinc-200 dark:border-zinc-800 truncate">
@@ -495,11 +498,13 @@ export default function CoursesPage() {
                     </span>
                   </div>
 
-                  <h2 className={`text-sm font-black line-clamp-2 leading-snug ${
-                    isLight ? 'text-black' : 'text-white'
-                  }`}>
-                    {translateCourseTitle(course.slug || course.id, course.title, language)}
-                  </h2>
+                  <Link href={`/courses/${course.slug || course.id}`} className="block">
+                    <h2 className={`text-sm font-black line-clamp-2 leading-snug hover:underline ${
+                      isLight ? 'text-black' : 'text-white'
+                    }`}>
+                      {translateCourseTitle(course.slug || course.id, course.title, language)}
+                    </h2>
+                  </Link>
 
                   <p className="text-[11px] leading-relaxed line-clamp-2 text-zinc-500 font-medium">
                     {translateCourseSummary(course.slug || course.id, course.summary, language)}
@@ -581,16 +586,16 @@ export default function CoursesPage() {
                     : 'bg-zinc-950 border-zinc-400 shadow-xl hover:border-white'
                 }`}
               >
-                {/* Thumbnail on Left */}
-                <div className="w-full md:w-64 h-48 sm:h-52 md:h-auto shrink-0 relative">
+                {/* Thumbnail on Left - LINKS TO DETAILS PAGE FIRST */}
+                <Link href={`/courses/${course.slug || course.id}`} className="w-full md:w-64 h-48 sm:h-52 md:h-auto shrink-0 relative block group">
                   <CourseThumbnail
                     thumbnailUrl={course.thumbnail_url}
                     thumbnailType={course.thumbnail_type}
                     category={course.category}
                     title={course.title}
-                    className="w-full h-full rounded-2xl"
+                    className="w-full h-full rounded-2xl group-hover:scale-[1.01] transition-transform"
                   />
-                </div>
+                </Link>
 
                 {/* Details on Right */}
                 <div className="flex-1 flex flex-col justify-between space-y-3">
@@ -610,9 +615,11 @@ export default function CoursesPage() {
                       </span>
                     </div>
 
-                    <h2 className={`text-xl font-black ${isLight ? 'text-black' : 'text-white'}`}>
-                      {course.title}
-                    </h2>
+                    <Link href={`/courses/${course.slug || course.id}`} className="block">
+                      <h2 className={`text-xl font-black hover:underline ${isLight ? 'text-black' : 'text-white'}`}>
+                        {course.title}
+                      </h2>
+                    </Link>
 
                     <p className="text-xs text-zinc-500 leading-relaxed font-medium">
                       {course.summary}

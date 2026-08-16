@@ -37,8 +37,8 @@ export function Header({ }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Hide header completely on the Auth Login Page
-  if (pathname === '/auth') {
+  // Hide header completely on the Auth Login Page and Distraction-Free Learning Player
+  if (pathname === '/auth' || pathname.startsWith('/learn/')) {
     return null;
   }
 
