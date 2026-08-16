@@ -43,9 +43,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {/* 🎯 TOP-CENTERED DESKTOP, TABLET & MOBILE POP-DOWN TOAST CONTAINER 🎯 */}
+      {/* 🎯 RIGHT-ALIGNED COMPACT NOTIFICATION TOAST CONTAINER 🎯 */}
       <div
-        className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 max-w-[340px] w-full pointer-events-none font-sans px-3"
+        className="fixed top-20 right-3 sm:right-5 z-[9999] flex flex-col items-end space-y-2 max-w-[260px] w-full pointer-events-none font-sans"
         aria-live="polite"
       >
         {toasts.map((toast) => {
@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={toast.id}
-              className={`w-full pointer-events-auto relative overflow-hidden flex items-center space-x-2.5 px-3.5 py-2.5 rounded-2xl border backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all transform animate-in fade-in slide-in-from-top-6 duration-300 ${
+              className={`w-full pointer-events-auto relative overflow-hidden flex items-center space-x-2 px-3 py-2 rounded-xl border backdrop-blur-xl shadow-lg transition-all transform animate-in fade-in slide-in-from-right-6 duration-300 ${
                 isLight
                   ? type === 'success'
                     ? 'bg-white/95 border-emerald-500/40 text-black shadow-zinc-200'
