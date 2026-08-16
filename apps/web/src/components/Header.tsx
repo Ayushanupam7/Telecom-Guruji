@@ -113,6 +113,13 @@ export function Header({ }: HeaderProps) {
                 >
                   {dict.certificate || 'Certificates'}
                 </Link>
+
+                <Link
+                  href="/about"
+                  className={`transition-colors py-1.5 ${getNavLinkClass('/about')}`}
+                >
+                  About Us
+                </Link>
               </>
             )}
 

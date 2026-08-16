@@ -782,32 +782,51 @@ export default function ProfilePage() {
         <div className={`mt-6 space-y-6 pt-5 border-t border-zinc-200 dark:border-zinc-800 ${
           isAboutExpanded ? 'block' : 'hidden sm:block'
         }`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* DEVELOPER CREDIT */}
-            <div className={`p-5 rounded-2xl border space-y-2 font-sans ${
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* FOUNDER CREDIT CARD */}
+            <div className={`p-4 rounded-2xl border space-y-2 font-sans ${
+              isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900 border-zinc-800'
+            }`}>
+              <div className="flex items-center space-x-2 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Founder & Chief Educator</span>
+              </div>
+              <h3 className="text-base font-black text-black dark:text-white tracking-tight">Gaurav Kr. Sinha</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                Pioneering 5G/6G architecture, IP protocols, and hands-on telecommunications education across India.
+              </p>
+              <div className="pt-1">
+                <Link href="/about" className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center space-x-1">
+                  <span>View Founder Story →</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* DEVELOPER CREDIT CARD */}
+            <div className={`p-4 rounded-2xl border space-y-2 font-sans ${
               isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900 border-zinc-800'
             }`}>
               <div className="flex items-center space-x-2 text-xs font-mono font-bold text-zinc-500 uppercase">
                 <UserCheck className="w-4 h-4 text-black dark:text-white" />
                 <span>Lead Architect & Developer</span>
               </div>
-              <h3 className="text-lg font-black text-black dark:text-white tracking-tight">Ayush Anupam</h3>
+              <h3 className="text-base font-black text-black dark:text-white tracking-tight">Ayush Anupam</h3>
               <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                Engineered Telecom Guruji’s real-time engagement verification engine, distributed microservices, and Supabase cloud database architecture.
+                Engineered Telecom Guruji’s engagement verification engine, microservices, and Supabase cloud database architecture.
               </p>
             </div>
 
             {/* OFFICIAL LICENSE & COMPLIANCE */}
-            <div className={`p-5 rounded-2xl border space-y-2 font-sans ${
+            <div className={`p-4 rounded-2xl border space-y-2 font-sans ${
               isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900 border-zinc-800'
             }`}>
               <div className="flex items-center space-x-2 text-xs font-mono font-bold text-zinc-500 uppercase">
-                <ShieldCheck className="w-4 h-4 text-black dark:text-white" />
-                <span>Software License & Open Source</span>
+                <Code2 className="w-4 h-4 text-black dark:text-white" />
+                <span>Software License</span>
               </div>
-              <h3 className="text-lg font-black text-black dark:text-white tracking-tight">MIT Open Source License</h3>
+              <h3 className="text-base font-black text-black dark:text-white tracking-tight">MIT License</h3>
               <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                Copyright © 2026 Ayush Anupam & Telecom Guruji Contributors. Licensed under the MIT License for open-source verification, redistribution, and educational use.
+                Copyright © 2026 Gaurav Kr. Sinha & Ayush Anupam. Open source verification & educational use.
               </p>
             </div>
           </div>
