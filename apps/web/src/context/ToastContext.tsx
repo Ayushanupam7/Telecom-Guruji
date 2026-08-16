@@ -45,7 +45,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {/* 🎯 TOP-CENTERED DESKTOP, TABLET & MOBILE POP-DOWN TOAST CONTAINER 🎯 */}
       <div
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 max-w-[340px] w-full pointer-events-none font-sans px-3"
+        className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 max-w-[340px] w-full pointer-events-none font-sans px-3"
         aria-live="polite"
       >
         {toasts.map((toast) => {
