@@ -6,12 +6,15 @@ import { useTheme } from '@/context/ThemeContext';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
-export interface ToastItemProps {
+export interface ToastMessage {
   id: string;
   title: string;
   message?: string;
   type?: ToastType;
   duration?: number;
+}
+
+export interface ToastItemProps extends ToastMessage {
   onClose: (id: string) => void;
 }
 
