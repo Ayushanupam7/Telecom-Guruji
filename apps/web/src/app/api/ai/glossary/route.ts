@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeAIWithFallback } from '@/lib/ai/aiService';
 
+export const dynamic = 'force-dynamic';
+
 export interface GlossaryAIResult {
   term: string;
   full_form?: string;

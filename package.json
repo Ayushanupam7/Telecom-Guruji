@@ -8,11 +8,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev:web",
-    "web": "npm run dev:web",
-    "dev:web": "npm run dev --workspace=@signalhub/web",
+    "dev": "npx cross-env NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 npm run dev:web",
+    "web": "npx cross-env NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 npm run dev:web",
+    "dev:web": "npx cross-env NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 npm run dev --workspace=@signalhub/web",
     "dev:mobile": "npm run start --workspace=@signalhub/mobile",
-    "build:web": "npm run build --workspace=@signalhub/web",
+    "build:web": "npx cross-env NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 npm run build --workspace=@signalhub/web",
     "build:packages": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

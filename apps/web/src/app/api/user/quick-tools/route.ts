@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/user/quick-tools?userId=...
  * Fetch user preferences, notebooks, pages, and glossary bookmarks from Supabase.

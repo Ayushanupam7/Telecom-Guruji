@@ -12,9 +12,9 @@ export const envConfig = {
   },
 
   supabase: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wchaqrfkxnomafwcpiqq.supabase.co',
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjaGFxcmZreG5vbWFmd2NwaXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzgwMjgsImV4cCI6MjEwMjIxNDAyOH0.-8zwMTal6D2zbchuUEVOigebQVWBgZ7D94cARfxIyN8',
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjaGFxcmZreG5vbWFmd2NwaXFxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjYzODAyOCwiZXhwIjoyMTAyMjE0MDI4fQ.G0IIG8RHiBQO4IvhUa4QklvgqHPI8ejiAOHektcO7-4',
   },
 
   ai: {

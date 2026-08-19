@@ -389,6 +389,7 @@ VALUES
   ('global', 'groq', '', 'llama-3.3-70b-versatile', true, true),
   ('global', 'gemini', '', 'gemini-1.5-flash', true, false)
 ON CONFLICT (user_id, provider) DO UPDATE SET
+  api_key = EXCLUDED.api_key,
   model = EXCLUDED.model,
   is_enabled = EXCLUDED.is_enabled,
   is_primary = EXCLUDED.is_primary,

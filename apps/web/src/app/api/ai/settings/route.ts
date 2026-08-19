@@ -3,6 +3,8 @@ import { getEffectiveAISettings } from '@/lib/ai/aiService';
 import { supabaseAdmin } from '@/lib/supabase';
 import { AIProviderType } from '@signalhub/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId') || 'global';

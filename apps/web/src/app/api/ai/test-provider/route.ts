@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { testProviderConnection } from '@/lib/ai/aiService';
 import { AIProviderType } from '@signalhub/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
