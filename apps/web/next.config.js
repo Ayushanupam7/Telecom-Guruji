@@ -9,9 +9,6 @@ const nextConfig = {
     '@signalhub/types',
     '@signalhub/validation',
   ],
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
-  },
 };
 
 module.exports = nextConfig;
