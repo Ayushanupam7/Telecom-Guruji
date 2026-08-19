@@ -31,6 +31,8 @@ interface EnrolledCourse {
   enrolled_at: string;
   completionPercent: number;
   last_lesson_id?: string;
+  last_module_index?: number;
+  last_slide_index?: number;
   thumbnail_url?: string | null;
   thumbnail_type?: string | null;
   instructor_name?: string;
@@ -80,7 +82,17 @@ export default function StudentDashboardPage() {
       }
 
       if (dbEnrollments && dbEnrollments.length > 0) {
-        const courseIds = dbEnrollments.map((e) => e.course_id);
+        // Deduplicate enrollments by course_id (keeping the most active/progressed one)
+        const uniqueEnrollmentMap = new Map<string, any>();
+        for (const enr of dbEnrollments) {
+          const existing = uniqueEnrollmentMap.get(enr.course_id);
+          if (!existing || (Number(enr.progress_percent || 0) >= Number(existing.progress_percent || 0))) {
+            uniqueEnrollmentMap.set(enr.course_id, enr);
+          }
+        }
+        const uniqueEnrollments = Array.from(uniqueEnrollmentMap.values());
+
+        const courseIds = uniqueEnrollments.map((e) => e.course_id);
 
         // 2. Fetch course definitions from Supabase DB
         const { data: dbCourses } = await supabaseAdmin
@@ -101,32 +113,68 @@ export default function StudentDashboardPage() {
           .or(`student_id.eq.${user.id},student_email.eq.${user.email}`)
           .eq('is_passed', true);
 
+        // 5. Fetch issued certificates from Supabase DB
+        const { data: dbCerts } = await supabaseAdmin
+          .from('certificates')
+          .select('*')
+          .or(`student_id.eq.${user.id},student_name.eq.${user.fullName || ''}`);
+
         const coursesMap = new Map((dbCourses || []).map((c) => [c.id, c]));
 
         let completedCoursesCount = 0;
         let sumMastery = 0;
 
-        const formattedList: EnrolledCourse[] = dbEnrollments.map((enr) => {
+        const formattedList: EnrolledCourse[] = uniqueEnrollments.map((enr) => {
           const courseObj = coursesMap.get(enr.course_id);
 
           const userProgressList = (dbProgress || []).filter(
-            (p) => (p.course_id === enr.course_id || p.course_id === courseObj?.id) && p.completed === true
+            (p) => (p.course_id === enr.course_id || p.course_id === courseObj?.id) && (p.is_completed === true || p.completed === true)
           );
 
           const userPassedQuizzes = (dbQuizzes || []).filter(
             (q) => q.course_id === enr.course_id || q.course_id === courseObj?.id
           );
 
-          const isCompletedStatus = enr.status === 'completed' || Number(enr.progress_percent) >= 100;
+          const hasCert = (dbCerts || []).some(
+            (cert) => cert.course_id === enr.course_id || cert.course_id === courseObj?.id
+          );
+
+          const hasFinalExam = (dbQuizzes || []).some(
+            (q) => (q.course_id === enr.course_id || q.course_id === courseObj?.id) && (q.quiz_id === 'final-exam' || q.quiz_id?.includes('final'))
+          );
+
+          // Read last module & slide index with fallback to localStorage
+          let lastModIdx = typeof enr.last_active_module_index === 'number'
+            ? enr.last_active_module_index
+            : typeof enr.last_module_index === 'number'
+            ? enr.last_module_index
+            : 0;
+
+          let lastSlideIdx = typeof enr.last_active_slide_index === 'number'
+            ? enr.last_active_slide_index
+            : typeof enr.last_slide_index === 'number'
+            ? enr.last_slide_index
+            : 0;
+
+          if (typeof window !== 'undefined') {
+            try {
+              const cached = localStorage.getItem(`tg_resume_${enr.course_id}_${user.id}`);
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                if (typeof parsed.moduleIdx === 'number') lastModIdx = parsed.moduleIdx;
+                if (typeof parsed.slideIdx === 'number') lastSlideIdx = parsed.slideIdx;
+              }
+            } catch (e) {}
+          }
+
+          const isCompletedStatus = hasCert || hasFinalExam || enr.status === 'completed' || Number(enr.progress_percent) >= 100;
           let calcPercent = 0;
 
           if (isCompletedStatus) {
             calcPercent = 100;
           } else {
             const rawProgress = Number(enr.progress_percent) || 0;
-            const lastMod = Number(enr.last_module_index) || 0;
-            const lastSlide = Number(enr.last_slide_index) || 0;
-            const positionProgress = Math.min(99, Math.round(((lastMod * 2 + lastSlide + 1) / 10) * 100));
+            const positionProgress = Math.min(99, Math.round(((lastModIdx * 2 + lastSlideIdx + 1) / 10) * 100));
 
             const slidePercent = Math.min(100, (userProgressList.length / 10) * 100);
             const quizPercent = Math.min(100, (userPassedQuizzes.length / 4) * 100);
@@ -143,12 +191,12 @@ export default function StudentDashboardPage() {
           return {
             enrollment_id: enr.id,
             course_id: enr.course_id,
-            title: courseObj?.title || enr.course_title || 'Verified Engineering Course',
+            title: courseObj?.title || enr.course_title || 'Verified Course',
             instructor_name: courseObj?.trainer_name || getInstructorNameForCourse(enr.course_id) || 'Dr. Ayush Sharma',
             summary:
               courseObj?.summary ||
               courseObj?.description ||
-              'Comprehensive engineering learning curriculum.',
+              'Comprehensive learning curriculum.',
             category: courseObj?.category || 'Computer Science',
             level: courseObj?.level || 'intermediate',
             price: Number(courseObj?.price) || 0,
@@ -156,7 +204,9 @@ export default function StudentDashboardPage() {
             slug: courseObj?.slug || courseObj?.id || enr.course_id,
             enrolled_at: enr.enrolled_at || new Date().toISOString(),
             completionPercent: calcPercent,
-            last_lesson_id: enr.last_lesson_id || 'm1-l1',
+            last_lesson_id: enr.last_active_slide_id || enr.last_lesson_id || 'm1-l1',
+            last_module_index: lastModIdx,
+            last_slide_index: lastSlideIdx,
             thumbnail_url: courseObj?.thumbnail_url || null,
             thumbnail_type: courseObj?.thumbnail_type || 'image',
           };
@@ -458,7 +508,7 @@ export default function StudentDashboardPage() {
                 {dict.noActiveEnrollments || 'No Active Course Enrollments'}
               </h3>
               <p className="text-xs text-zinc-500 max-w-md mx-auto">
-                {dict.noCoursesFound || 'Browse the engineering course catalog to enroll in courses and start building verified credentials!'}
+                {dict.noCoursesFound || 'Browse the course catalog to enroll in courses and start building verified credentials!'}
               </p>
             </div>
             <Link
@@ -521,17 +571,28 @@ export default function StudentDashboardPage() {
                   </p>
                 </div>
 
-                {/* PROGRESS BAR */}
-                <div className="space-y-1.5 pt-1 border-t border-zinc-100 dark:border-zinc-900">
-                  <div className="flex justify-between text-xs font-mono">
+                {/* PROGRESS BAR & RESUME POINT */}
+                <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center justify-between text-xs font-mono">
                     <span className="text-zinc-500 font-bold">{dict.courseProgress || 'Course Progress'}</span>
-                    <span className="font-extrabold text-black dark:text-white">{c.completionPercent}%</span>
+                    <span className="font-black text-black dark:text-white">{c.completionPercent}%</span>
                   </div>
                   <div className="w-full h-2 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                     <div
-                      className="h-full bg-black dark:bg-white transition-all duration-500 rounded-full"
+                      className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-500 rounded-full"
                       style={{ width: `${c.completionPercent}%` }}
                     />
+                  </div>
+                  
+                  {/* RESUME POINT BANNER */}
+                  <div className="pt-0.5 flex items-center justify-between text-xs font-mono">
+                    <span className="text-zinc-500 font-bold flex items-center space-x-1.5">
+                      <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                      <span>Resume Point:</span>
+                    </span>
+                    <span className="text-black dark:text-white font-black text-xs px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                      Module {(c.last_module_index ?? 0) + 1} • Slide {(c.last_slide_index ?? 0) + 1}
+                    </span>
                   </div>
                 </div>
 

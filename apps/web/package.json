@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "npx cross-env NEXT_DISABLE_SWC_LOCKFILE_PATCH=1 next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@signalhub/shared": "*",

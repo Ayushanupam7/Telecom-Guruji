@@ -39,7 +39,7 @@ export const en = {
   signIn: 'Sign In',
   signOut: 'Sign Out',
   myProfile: 'My Profile',
-  heroTitle: 'Explore Verified Engineering Courses',
+  heroTitle: 'Explore Courses',
   heroSubtitle: 'Master Signal Processing, Cloud Architecture, Full-Stack Web & Deep Learning with real-time verification and certificates.',
   myEnrolledCourses: 'My Enrolled Courses',
   activeCoursesLabel: 'Active Courses',

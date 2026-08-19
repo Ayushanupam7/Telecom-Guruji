@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { supabaseAdmin, supabase } from '@/lib/supabase';
 
@@ -23,18 +24,35 @@ const isUUID = (str?: string): boolean =>
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const pathname = usePathname() || '';
+  const isAuthPage = pathname === '/auth' || pathname.startsWith('/auth');
   const [theme, setTheme] = useState<Theme>('light'); // DEFAULT TO LIGHT MODE
+
+  const applyDomTheme = (targetTheme: Theme, isAuth: boolean) => {
+    if (typeof window !== 'undefined') {
+      if (isAuth || targetTheme === 'light') {
+        document.documentElement.classList.remove('dark', 'dark-mode');
+        document.documentElement.classList.add('light', 'light-mode');
+        document.body.classList.remove('dark', 'dark-mode');
+        document.body.classList.add('light', 'light-mode');
+      } else {
+        document.documentElement.classList.remove('light', 'light-mode');
+        document.documentElement.classList.add('dark', 'dark-mode');
+        document.body.classList.remove('light', 'light-mode');
+        document.body.classList.add('dark', 'dark-mode');
+      }
+    }
+  };
 
   const applyTheme = (targetTheme: Theme) => {
     setTheme(targetTheme);
-    if (targetTheme === 'dark') {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
+    applyDomTheme(targetTheme, isAuthPage);
   };
+
+  // Enforce correct DOM theme classes when navigating or theme changes
+  useEffect(() => {
+    applyDomTheme(theme, isAuthPage);
+  }, [isAuthPage, theme]);
 
   // 1. AUTOMATICALLY SYNC DARK OR LIGHT THEME FROM SUPABASE USER DATABASE
   useEffect(() => {
@@ -72,7 +90,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           if (dbTheme === 'dark' || dbTheme === 'light') {
             console.log(`🌙 AUTOMATICALLY RESTORED ${dbTheme.toUpperCase()} THEME FROM SUPABASE DB FOR ${user?.email || user?.id}`);
             applyTheme(dbTheme as Theme);
-            localStorage.setItem('signalhub-theme', dbTheme);
             return;
           }
         } catch (e) {
@@ -80,13 +97,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Fallback to localStorage or Light Mode default
-      const saved = localStorage.getItem('signalhub-theme') as Theme;
-      if (saved === 'dark' || saved === 'light') {
-        applyTheme(saved);
-      } else {
-        applyTheme('light');
-      }
+      // Default to Light Mode
+      applyTheme('light');
     }
 
     syncDatabaseTheme();
@@ -113,7 +125,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           if (newTheme === 'dark' || newTheme === 'light') {
             console.log(`⚡ REALTIME SUPABASE THEME SYNC RECEIVED: ${newTheme.toUpperCase()}`);
             applyTheme(newTheme);
-            localStorage.setItem('signalhub-theme', newTheme);
           }
         }
       )
@@ -179,19 +190,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = async () => {
     const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark';
     applyTheme(nextTheme);
-    localStorage.setItem('signalhub-theme', nextTheme);
     await syncThemeToSupabase(nextTheme);
   };
 
   const setThemePreference = async (newTheme: Theme) => {
     applyTheme(newTheme);
-    localStorage.setItem('signalhub-theme', newTheme);
     await syncThemeToSupabase(newTheme);
   };
 
+  const effectiveThemeClass = isAuthPage ? 'light-mode' : (theme === 'light' ? 'light-mode' : 'dark-mode');
+
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setThemePreference }}>
-      <div className={theme === 'light' ? 'light-mode' : 'dark-mode'}>
+      <div className={effectiveThemeClass}>
         {children}
       </div>
     </ThemeContext.Provider>

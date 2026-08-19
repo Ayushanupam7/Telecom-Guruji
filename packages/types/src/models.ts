@@ -3,18 +3,93 @@ export type SupportedLanguage = 'en' | 'hi' | 'mr' | 'bn' | 'ta' | 'te' | 'gu' |
 
 export type CourseType = 'free' | 'one_time_purchase' | 'subscription' | 'paid';
 export type CourseLevel = 'beginner' | 'intermediate' | 'advanced' | 'all_levels';
+export type CourseStatus = 'draft' | 'ready_for_review' | 'published' | 'unpublished';
+export type CourseCreationMethod = 'manual' | 'manual_ai' | 'ai_generated' | 'ppt' | 'video';
 
-export type ContentBlockType = 
-  | 'TEXT'
-  | 'VIDEO'
-  | 'YOUTUBE'
-  | 'PDF'
-  | 'IMAGE'
-  | 'QUIZ'
-  | 'EMBED'
-  | 'CODE';
+export type CourseTheme = 'telecom_classic' | 'modern' | 'minimal' | 'professional';
+export type TypographyFamily = 'roboto' | 'inter' | 'outfit' | 'system';
+export type CardStyle = 'bordered' | 'glass' | 'elevated' | 'flat';
+export type SlideLayout = 'standard' | 'wide' | 'split';
+export type CertificateDesign = 'classic' | 'modern' | 'professional';
 
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false';
+export interface CourseTemplateConfig {
+  theme: CourseTheme;
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  typography: TypographyFamily;
+  cardStyle: CardStyle;
+  slideLayout: SlideLayout;
+  certificateDesign: CertificateDesign;
+}
+
+export interface CertificateConfig {
+  template: CertificateDesign;
+  title: string;
+  logoUrl?: string;
+  signatureName: string;
+  signatureTitle?: string;
+  signatureUrl?: string;
+  accentColor: string;
+  backgroundPattern?: string;
+}
+
+export type RichBlockType =
+  | 'heading'
+  | 'paragraph'
+  | 'bullet_list'
+  | 'image'
+  | 'table'
+  | 'video'
+  | 'audio'
+  | 'chart'
+  | 'graphic'
+  | 'quote'
+  | 'code'
+  | 'file'
+  | 'divider';
+
+export interface RichBlock {
+  id: string;
+  type: RichBlockType;
+  content: {
+    text?: string;
+    level?: 1 | 2 | 3;
+    items?: string[];
+    url?: string;
+    caption?: string;
+    alt?: string;
+    headers?: string[];
+    rows?: string[][];
+    language?: string;
+    code?: string;
+    author?: string;
+    chartType?: 'bar' | 'line' | 'pie';
+    chartData?: Array<{ label: string; value: number }>;
+    fileName?: string;
+    fileSize?: string;
+    durationSeconds?: number;
+    videoProvider?: 'direct' | 'youtube' | 'vimeo';
+    graphicType?: 'telecom_stack' | 'signal_flow' | 'network_topo' | 'placeholder';
+    [key: string]: unknown;
+  };
+  styles?: Record<string, string>;
+}
+
+export interface CourseSlide {
+  id: string;
+  slide_number: number;
+  title: string;
+  content_type: 'block_based' | 'text' | 'video' | 'code' | 'image';
+  body_markdown?: string;
+  media_url?: string;
+  code_snippet?: string;
+  blocks?: RichBlock[];
+  notes?: string;
+  duration_seconds?: number;
+}
+
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false' | 'short_answer';
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
 export type QuizType = 'module_quiz' | 'surprise_quiz';
 export type EnrollmentStatus = 'active' | 'completed' | 'revoked';
@@ -33,18 +108,8 @@ export interface Profile {
 
 export interface AttentionCheckConfig {
   enabled: boolean;
-  triggerIntervalSlides: number; // e.g. after every 1 or 2 slides
-  timeoutSeconds: number; // e.g. 30 seconds
-}
-
-export interface CourseSlide {
-  id: string;
-  slide_number: number;
-  title: string;
-  content_type: 'text' | 'video' | 'code' | 'image';
-  body_markdown?: string;
-  media_url?: string;
-  code_snippet?: string;
+  triggerIntervalSlides: number;
+  timeoutSeconds: number;
 }
 
 export interface FinalAssessment {
@@ -52,6 +117,8 @@ export interface FinalAssessment {
   title: string;
   description: string;
   passing_score_percent: number;
+  time_limit_minutes?: number;
+  max_attempts?: number;
   questions: Question[];
 }
 
@@ -63,7 +130,10 @@ export interface Course {
   slug: string;
   summary: string;
   description: string;
+  detailed_description?: string;
   thumbnail_url?: string | null;
+  thumbnail_type?: 'image' | 'video';
+  course_background?: string | null;
   category: string;
   level: CourseLevel;
   default_language: SupportedLanguage;
@@ -71,10 +141,18 @@ export interface Course {
   price: number;
   currency: string;
   is_published: boolean;
+  status?: CourseStatus;
+  creation_method?: CourseCreationMethod;
+  course_duration?: number | string;
+  tags?: string[];
+  template_config?: CourseTemplateConfig;
+  certificate_config?: CertificateConfig;
+  modules_count?: number;
+  lessons_count?: number;
   published_at?: string | null;
   created_at: string;
   updated_at: string;
-  // Module-type course additions
+  // Content Overview
   content_overview?: {
     syllabus_summary?: string;
     prerequisites?: string;
@@ -106,14 +184,19 @@ export interface Module {
   description?: string | null;
   sequence_order: number;
   is_free_preview: boolean;
+  duration_minutes?: number;
+  learning_outcomes?: string[];
+  has_quiz?: boolean;
   slides?: CourseSlide[];
+  slides_data?: CourseSlide[];
   quiz?: Quiz;
+  quiz_data?: Quiz;
   unlock_requirement?: {
     type: 'sequential' | 'free';
     prerequisite_module_id?: string;
   } | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   // Joined
   lessons?: Lesson[];
   quizzes?: Quiz[];
@@ -135,6 +218,9 @@ export interface Lesson {
   sequence_order: number;
   is_free_preview: boolean;
   is_optional: boolean;
+  duration_seconds?: number;
+  content_type?: 'video' | 'article' | 'interactive' | 'slides';
+  content_url?: string;
   created_at: string;
   updated_at: string;
   // Joined
@@ -185,6 +271,16 @@ export interface CodeBlockPayload {
   language: string;
 }
 
+export type ContentBlockType = 
+  | 'TEXT'
+  | 'VIDEO'
+  | 'YOUTUBE'
+  | 'PDF'
+  | 'IMAGE'
+  | 'QUIZ'
+  | 'EMBED'
+  | 'CODE';
+
 export type ContentBlockPayload = 
   | TextBlockPayload 
   | VideoBlockPayload 
@@ -211,9 +307,16 @@ export interface Enrollment {
   student_id: string;
   course_id: string;
   status: EnrollmentStatus;
+  payment_status?: 'free' | 'paid' | 'pending' | 'refunded';
+  amount_paid?: number;
+  payment_method?: string;
+  utr_number?: string;
+  transaction_ref?: string;
+  student_name?: string;
+  student_email?: string;
   enrolled_at: string;
   completed_at?: string | null;
-  updated_at: string;
+  updated_at?: string;
   course?: Course;
 }
 
@@ -232,15 +335,15 @@ export interface Progress {
 
 export interface QuestionOption {
   id: string;
-  question_id: string;
+  question_id?: string;
   option_text: string;
-  is_correct?: boolean; // Note: stripped out for student payloads
+  is_correct?: boolean;
   sequence_order: number;
 }
 
 export interface Question {
   id: string;
-  bank_id: string;
+  bank_id?: string;
   module_id?: string | null;
   lesson_id?: string | null;
   question_text: string;
@@ -248,22 +351,25 @@ export interface Question {
   difficulty: QuestionDifficulty;
   topic?: string | null;
   explanation?: string | null;
-  default_language: SupportedLanguage;
+  marks?: number;
+  default_language?: SupportedLanguage;
   options?: QuestionOption[];
 }
 
 export interface Quiz {
   id: string;
-  module_id: string;
+  module_id?: string;
   title: string;
-  quiz_type: QuizType;
+  description?: string;
+  quiz_type?: QuizType;
   passing_score_percent: number;
-  total_questions_to_select: number;
+  total_questions_to_select?: number;
   time_limit_minutes?: number | null;
-  max_attempts: number;
-  is_randomized: boolean;
-  created_at: string;
-  updated_at: string;
+  max_attempts?: number;
+  is_randomized?: boolean;
+  questions?: Question[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface QuizAttempt {
@@ -298,4 +404,30 @@ export interface Certificate {
   student_name?: string;
   course_title?: string;
   instructor_name?: string;
+}
+
+// AI Settings & Strategy
+export type AIProviderType = 'groq' | 'gemini';
+
+export interface AIProviderConfig {
+  id?: string;
+  user_id?: string;
+  provider: AIProviderType;
+  api_key?: string;
+  masked_key?: string;
+  model: string;
+  is_enabled: boolean;
+  is_primary: boolean;
+  usage?: string;
+  status?: 'connected' | 'not_configured' | 'error';
+  last_tested_at?: string;
+}
+
+export interface AIStrategyConfig {
+  primaryProvider: AIProviderType;
+  fallbackProvider: AIProviderType;
+  groqModel: string;
+  geminiModel: string;
+  temperature: number;
+  maxTokens: number;
 }

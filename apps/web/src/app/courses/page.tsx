@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Search, Sparkles, User, ShieldCheck, ArrowRight, Layers, CheckCircle2, 
+import {
+  Search, Sparkles, User, ShieldCheck, ArrowRight, Layers, CheckCircle2,
   Signal, CreditCard, Lock, X, PlusCircle, Compass, BookOpen, LogOut, AlertTriangle,
-  LayoutGrid, List, SlidersHorizontal, Filter, RefreshCw, Star, QrCode, Copy, Check 
+  LayoutGrid, List, SlidersHorizontal, Filter, RefreshCw, Star, QrCode, Copy, Check
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -75,7 +75,7 @@ export default function CoursesPage() {
               level: c.level || 'intermediate',
               course_type: c.course_type || (Number(c.price) > 0 ? 'paid' : 'free'),
               category: c.category || 'Computer Science',
-              summary: c.summary || c.description || 'Comprehensive verified engineering curriculum.',
+              summary: c.summary || c.description || 'Comprehensive verified curriculum.',
               price: Number(c.price) || 0,
               currency: c.currency || 'INR',
               slug: c.slug || c.id,
@@ -163,8 +163,30 @@ export default function CoursesPage() {
       const studentEmail = user?.email || 'student@signalhub.app';
       const studentName = user?.fullName || 'Student Learner';
 
-      // Insert enrollment record
-      await supabaseAdmin.from('enrollments').insert({
+      // 1. Check if student is already enrolled
+      const { data: existingEnrollments } = await supabaseAdmin
+        .from('enrollments')
+        .select('id, status')
+        .eq('course_id', courseItem.id)
+        .or(`student_id.eq.${studentId},student_email.eq.${studentEmail}`)
+        .limit(1);
+
+      if (existingEnrollments && existingEnrollments.length > 0) {
+        setEnrolledCourseIds((prev) => new Set([...Array.from(prev), courseItem.id]));
+        showToast({
+          type: 'info',
+          title: 'Already Enrolled',
+          message: `You are already enrolled in "${courseItem.title}".`,
+        });
+        return;
+      }
+
+      // 2. Deterministic ID to prevent duplicate inserts
+      const deterministicId = `enr-${studentId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)}-${courseItem.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)}`;
+
+      // Upsert enrollment record
+      await supabaseAdmin.from('enrollments').upsert({
+        id: deterministicId,
         student_id: studentId,
         student_email: studentEmail,
         student_name: studentName,
@@ -177,7 +199,7 @@ export default function CoursesPage() {
         payment_method: method,
         amount_paid: paidAmount,
         utr_number: utrNumber || null,
-      });
+      }, { onConflict: 'id' });
 
       // Update local state
       setEnrolledCourseIds((prev) => new Set([...Array.from(prev), courseItem.id]));
@@ -246,10 +268,10 @@ export default function CoursesPage() {
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-[11px] font-mono font-bold uppercase tracking-wider text-black dark:text-white">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Verified Engineering Catalog</span>
+            <span>Course Catalog</span>
           </div>
           <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isLight ? 'text-black' : 'text-white'}`}>
-            {dict.heroTitle || 'Explore Verified Courses'}
+            {dict.heroTitle || 'Explore Courses'}
           </h1>
         </div>
 
@@ -278,9 +300,8 @@ export default function CoursesPage() {
       </div>
 
       {/* Modern Filter & Controls Toolbar (BLACK & WHITE) */}
-      <div className={`p-4 rounded-3xl border ${
-        isLight ? 'bg-white border-zinc-300 shadow-sm text-black' : 'bg-zinc-950 border-zinc-800 text-white'
-      } space-y-4`}>
+      <div className={`p-4 rounded-3xl border ${isLight ? 'bg-white border-zinc-300 shadow-sm text-black' : 'bg-zinc-950 border-zinc-800 text-white'
+        } space-y-4`}>
         {/* Top Row: Category Pills & Search + View Toggle */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           {/* Category Filter Pills */}
@@ -289,13 +310,12 @@ export default function CoursesPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all shrink-0 flex items-center space-x-1.5 border ${
-                  selectedCategory === cat
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all shrink-0 flex items-center space-x-1.5 border ${selectedCategory === cat
                     ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-md'
                     : isLight
-                    ? 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
-                }`}
+                      ? 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                  }`}
               >
                 {cat === 'My Courses' && <CheckCircle2 className="w-3.5 h-3.5" />}
                 <span>{translateCategory(cat, language)}</span>
@@ -317,11 +337,10 @@ export default function CoursesPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={dict.searchCourses || 'Search courses...'}
-                className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border ${
-                  isLight
+                className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border ${isLight
                     ? 'bg-zinc-50 border-zinc-300 text-black focus:border-black'
                     : 'bg-zinc-950 border-zinc-700 text-white focus:border-white'
-                }`}
+                  }`}
               />
               {search && (
                 <button
@@ -334,18 +353,16 @@ export default function CoursesPage() {
             </div>
 
             {/* View Mode Toggle (List vs Grid) */}
-            <div className={`flex items-center p-1 rounded-xl border text-xs shrink-0 ${
-              isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-zinc-900 border-zinc-800'
-            }`}>
+            <div className={`flex items-center p-1 rounded-xl border text-xs shrink-0 ${isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-zinc-900 border-zinc-800'
+              }`}>
               <button
                 type="button"
                 onClick={() => setViewType('list')}
                 title="List View"
-                className={`px-3 py-1.5 rounded-lg font-black transition-all flex items-center space-x-1.5 ${
-                  viewType === 'list'
+                className={`px-3 py-1.5 rounded-lg font-black transition-all flex items-center space-x-1.5 ${viewType === 'list'
                     ? 'bg-black text-white dark:bg-white dark:text-black shadow-sm'
                     : 'text-zinc-500 hover:text-black dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <List className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">List</span>
@@ -355,11 +372,10 @@ export default function CoursesPage() {
                 type="button"
                 onClick={() => setViewType('grid')}
                 title="Grid View"
-                className={`px-3 py-1.5 rounded-lg font-black transition-all flex items-center space-x-1.5 ${
-                  viewType === 'grid'
+                className={`px-3 py-1.5 rounded-lg font-black transition-all flex items-center space-x-1.5 ${viewType === 'grid'
                     ? 'bg-black text-white dark:bg-white dark:text-black shadow-sm'
                     : 'text-zinc-500 hover:text-black dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Grid</span>
@@ -380,9 +396,8 @@ export default function CoursesPage() {
             <select
               value={selectedLevel}
               onChange={(e) => setSelectedLevel(e.target.value)}
-              className={`p-1.5 rounded-lg border text-xs font-bold focus:outline-none ${
-                isLight ? 'bg-zinc-50 border-zinc-300 text-black' : 'bg-zinc-900 border-zinc-800 text-white'
-              }`}
+              className={`p-1.5 rounded-lg border text-xs font-bold focus:outline-none ${isLight ? 'bg-zinc-50 border-zinc-300 text-black' : 'bg-zinc-900 border-zinc-800 text-white'
+                }`}
             >
               <option value="all">{dict.allLevels || 'All Levels'}</option>
               <option value="beginner">{dict.beginner || 'Beginner'}</option>
@@ -395,27 +410,24 @@ export default function CoursesPage() {
               <button
                 type="button"
                 onClick={() => setSelectedType('all')}
-                className={`px-2.5 py-1 rounded font-black transition-all ${
-                  selectedType === 'all' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
-                }`}
+                className={`px-2.5 py-1 rounded font-black transition-all ${selectedType === 'all' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
+                  }`}
               >
                 {dict.allTypes || 'All Types'}
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedType('free')}
-                className={`px-2.5 py-1 rounded font-black transition-all ${
-                  selectedType === 'free' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
-                }`}
+                className={`px-2.5 py-1 rounded font-black transition-all ${selectedType === 'free' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
+                  }`}
               >
                 {dict.freeAccess || 'Free'}
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedType('paid')}
-                className={`px-2.5 py-1 rounded font-black transition-all ${
-                  selectedType === 'paid' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
-                }`}
+                className={`px-2.5 py-1 rounded font-black transition-all ${selectedType === 'paid' ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs' : 'text-zinc-500'
+                  }`}
               >
                 {dict.paidCourses || 'Paid'}
               </button>
@@ -432,9 +444,8 @@ export default function CoursesPage() {
       {loading ? (
         <PageLoader />
       ) : filtered.length === 0 ? (
-        <div className={`p-12 rounded-3xl border text-center space-y-4 ${
-          isLight ? 'bg-white border-zinc-300 shadow-sm' : 'bg-zinc-950 border-zinc-800 text-white'
-        }`}>
+        <div className={`p-12 rounded-3xl border text-center space-y-4 ${isLight ? 'bg-white border-zinc-300 shadow-sm' : 'bg-zinc-950 border-zinc-800 text-white'
+          }`}>
           <div className="w-14 h-14 rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center mx-auto shadow-md">
             <Compass className="w-7 h-7" />
           </div>
@@ -471,11 +482,10 @@ export default function CoursesPage() {
             return (
               <div
                 key={course.id}
-                className={`p-5 rounded-3xl border transition-all duration-300 flex flex-col justify-between space-y-4 ${
-                  isLight
+                className={`p-5 rounded-3xl border transition-all duration-300 flex flex-col justify-between space-y-4 ${isLight
                     ? 'bg-white border-zinc-300 shadow-md hover:shadow-xl hover:border-black'
                     : 'bg-zinc-950 border-zinc-400 shadow-xl hover:border-white'
-                }`}
+                  }`}
               >
                 <div className="space-y-3">
                   {/* MEDIA THUMBNAIL - LINKS TO DETAILS PAGE FIRST */}
@@ -499,9 +509,8 @@ export default function CoursesPage() {
                   </div>
 
                   <Link href={`/courses/${course.slug || course.id}`} className="block">
-                    <h2 className={`text-sm font-black line-clamp-2 leading-snug hover:underline ${
-                      isLight ? 'text-black' : 'text-white'
-                    }`}>
+                    <h2 className={`text-sm font-black line-clamp-2 leading-snug hover:underline ${isLight ? 'text-black' : 'text-white'
+                      }`}>
                       {translateCourseTitle(course.slug || course.id, course.title, language)}
                     </h2>
                   </Link>
@@ -524,11 +533,10 @@ export default function CoursesPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <Link
                         href={`/courses/${course.slug || course.id}`}
-                        className={`py-2 px-2.5 rounded-xl border text-[11px] font-black text-center transition-all ${
-                          isLight
+                        className={`py-2 px-2.5 rounded-xl border text-[11px] font-black text-center transition-all ${isLight
                             ? 'border-zinc-300 text-black hover:bg-zinc-100'
                             : 'border-zinc-700 text-white hover:bg-zinc-900'
-                        }`}
+                          }`}
                       >
                         {dict.details || 'Details'}
                       </Link>
@@ -580,11 +588,10 @@ export default function CoursesPage() {
             return (
               <div
                 key={course.id}
-                className={`p-6 rounded-3xl border flex flex-col md:flex-row items-stretch gap-6 transition-all duration-300 ${
-                  isLight
+                className={`p-6 rounded-3xl border flex flex-col md:flex-row items-stretch gap-6 transition-all duration-300 ${isLight
                     ? 'bg-white border-zinc-300 shadow-lg hover:shadow-xl hover:border-black'
                     : 'bg-zinc-950 border-zinc-400 shadow-xl hover:border-white'
-                }`}
+                  }`}
               >
                 {/* Thumbnail on Left - LINKS TO DETAILS PAGE FIRST */}
                 <Link href={`/courses/${course.slug || course.id}`} className="w-full md:w-64 h-48 sm:h-52 md:h-auto shrink-0 relative block group">
@@ -680,9 +687,8 @@ export default function CoursesPage() {
       {/* UNENROLL CONFIRMATION MODAL */}
       {courseToUnenroll && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className={`max-w-md w-full p-8 rounded-3xl border shadow-2xl space-y-5 relative ${
-            isLight ? 'bg-white border-zinc-300 text-black' : 'bg-zinc-950 border-zinc-800 text-white'
-          }`}>
+          <div className={`max-w-md w-full p-8 rounded-3xl border shadow-2xl space-y-5 relative ${isLight ? 'bg-white border-zinc-300 text-black' : 'bg-zinc-950 border-zinc-800 text-white'
+            }`}>
             <button
               onClick={() => setCourseToUnenroll(null)}
               className="absolute top-4 right-4 p-1 text-zinc-400 hover:text-black dark:hover:text-white"

@@ -2,10 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Signal, BookOpen, Award, Menu, X, Code, GraduationCap,
-  School, Sun, Moon, LogOut, ChevronDown, Settings
+  School, Sun, Moon, LogOut, ChevronDown, Settings, Layers
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -19,6 +19,8 @@ interface HeaderProps {
 export function Header({ }: HeaderProps) {
   const rawPathname = usePathname();
   const pathname = rawPathname || '';
+  const searchParams = useSearchParams();
+  const currentTab = searchParams?.get('tab') || '';
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { dict } = useLanguage();
@@ -127,23 +129,24 @@ export function Header({ }: HeaderProps) {
               <>
                 <Link
                   href="/instructor/dashboard"
-                  className={`transition-colors py-1.5 ${getNavLinkClass('/instructor/dashboard')}`}
+                  className={`transition-colors py-1.5 ${
+                    (pathname === '/instructor/dashboard' || pathname === '/instructor') && currentTab !== 'courses'
+                      ? (isLight ? 'text-black font-black border-b-2 border-black' : 'text-white font-black border-b-2 border-white')
+                      : (isLight ? 'text-zinc-600 hover:text-black font-bold' : 'text-zinc-400 hover:text-white font-bold')
+                  }`}
                 >
                   Instructor Studio
                 </Link>
 
                 <Link
-                  href="/courses"
-                  className={`transition-colors py-1.5 ${getNavLinkClass('/courses')}`}
+                  href="/instructor/dashboard?tab=courses"
+                  className={`transition-colors py-1.5 ${
+                    (pathname === '/instructor/dashboard' || pathname === '/instructor') && currentTab === 'courses'
+                      ? (isLight ? 'text-black font-black border-b-2 border-black' : 'text-white font-black border-b-2 border-white')
+                      : (isLight ? 'text-zinc-600 hover:text-black font-bold' : 'text-zinc-400 hover:text-white font-bold')
+                  }`}
                 >
-                  Course Catalog
-                </Link>
-
-                <Link
-                  href="/instructor/course/create"
-                  className={`transition-colors py-1.5 ${getNavLinkClass('/instructor/course/create')}`}
-                >
-                  + Create Course
+                  My Courses
                 </Link>
               </>
             )}
@@ -241,17 +244,43 @@ export function Header({ }: HeaderProps) {
                     </div>
                   </div>
 
-                  {/* 1. MY COURSES */}
-                  <Link
-                    href="/student/dashboard"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className={`w-full px-3.5 py-2.5 rounded-lg text-sm font-extrabold flex items-center space-x-3 transition-colors ${
-                      isLight ? 'hover:bg-zinc-100 text-black' : 'hover:bg-zinc-900 text-white'
-                    }`}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>My Courses</span>
-                  </Link>
+                  {/* 1. PRIMARY ROLE DASHBOARD */}
+                  {role === 'instructor' ? (
+                    <>
+                      <Link
+                        href="/instructor/dashboard"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className={`w-full px-3.5 py-2.5 rounded-lg text-sm font-extrabold flex items-center space-x-3 transition-colors ${
+                          isLight ? 'hover:bg-zinc-100 text-black' : 'hover:bg-zinc-900 text-white'
+                        }`}
+                      >
+                        <Layers className="w-4 h-4" />
+                        <span>Instructor Studio</span>
+                      </Link>
+
+                      <Link
+                        href="/instructor/dashboard?tab=courses"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className={`w-full px-3.5 py-2.5 rounded-lg text-sm font-extrabold flex items-center space-x-3 transition-colors ${
+                          isLight ? 'hover:bg-zinc-100 text-black' : 'hover:bg-zinc-900 text-white'
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>My Courses</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link
+                      href="/student/dashboard"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`w-full px-3.5 py-2.5 rounded-lg text-sm font-extrabold flex items-center space-x-3 transition-colors ${
+                        isLight ? 'hover:bg-zinc-100 text-black' : 'hover:bg-zinc-900 text-white'
+                      }`}
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>My Courses</span>
+                    </Link>
+                  )}
 
                   {/* 2. SETTINGS */}
                   <Link
@@ -338,14 +367,36 @@ export function Header({ }: HeaderProps) {
             </div>
           )}
 
-          <Link
-            href="/student/dashboard"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center space-x-2.5 text-base font-bold py-2 text-black dark:text-white"
-          >
-            <BookOpen className="w-5 h-5 text-black dark:text-white" />
-            <span>My Courses</span>
-          </Link>
+          {role === 'instructor' ? (
+            <>
+              <Link
+                href="/instructor/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-2.5 text-base font-bold py-2 text-black dark:text-white"
+              >
+                <Layers className="w-5 h-5 text-black dark:text-white" />
+                <span>Instructor Studio</span>
+              </Link>
+
+              <Link
+                href="/instructor/dashboard?tab=courses"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-2.5 text-base font-bold py-2 text-black dark:text-white"
+              >
+                <BookOpen className="w-5 h-5 text-black dark:text-white" />
+                <span>My Courses</span>
+              </Link>
+            </>
+          ) : (
+            <Link
+              href="/student/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center space-x-2.5 text-base font-bold py-2 text-black dark:text-white"
+            >
+              <BookOpen className="w-5 h-5 text-black dark:text-white" />
+              <span>My Courses</span>
+            </Link>
+          )}
 
           <Link
             href="/profile"

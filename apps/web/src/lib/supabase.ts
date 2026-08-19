@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { envConfig } from './config';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wchaqrfkxnomafwcpiqq.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjaGFxcmZreG5vbWFmd2NwaXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzgwMjgsImV4cCI6MjEwMjIxNDAyOH0.-8zwMTal6D2zbchuUEVOigebQVWBgZ7D94cARfxIyN8';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjaGFxcmZreG5vbWFmd2NwaXFxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjYzODAyOCwiZXhwIjoyMTAyMjE0MDI4fQ.G0IIG8RHiBQO4IvhUa4QklvgqHPI8ejiAOHektcO7-4';
+const supabaseUrl = envConfig.supabase.url;
+const supabaseAnonKey = envConfig.supabase.anonKey;
+const supabaseServiceKey = envConfig.supabase.serviceRoleKey;
 
 // Standard client for Auth session persistence
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

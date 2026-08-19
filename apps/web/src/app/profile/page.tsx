@@ -93,7 +93,7 @@ export default function ProfilePage() {
 
               return {
                 ...enr,
-                course_title: course?.title || enr.course_title || 'Verified Engineering Course',
+                course_title: course?.title || enr.course_title || 'Verified Course',
                 category: course?.category || 'Computer Science',
                 price: Number(course?.price ?? enr.amount_paid ?? 0),
                 currency: course?.currency || 'INR',

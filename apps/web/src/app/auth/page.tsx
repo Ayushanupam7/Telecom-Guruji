@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Signal, ShieldCheck, Cpu, GraduationCap, School, Lock, Mail, Eye, EyeOff, ArrowRight, Building2, KeyRound, Sparkles, X, Radio, Wifi, Zap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Signal, ShieldCheck, Cpu, GraduationCap, School, Lock, Mail, Eye, EyeOff, ArrowRight, Building2, KeyRound, Sparkles, X, Radio, Wifi, Zap, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@signalhub/types';
 import { PageLoader } from '@/components/PageLoader';
 
 export default function AuthPage() {
+  const router = useRouter();
   const { loginWithCredentials, signUpUser, loginWithGoogle, loginWithSSO, resetPassword } = useAuth();
 
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -39,13 +41,20 @@ export default function AuthPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // STRICT LIGHT MODE ENFORCEMENT ON MOUNT
+  // STRICT LIGHT MODE ENFORCEMENT & PREFETCH ON MOUNT
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark', 'dark-mode');
+      document.documentElement.classList.add('light', 'light-mode');
+      document.body.classList.remove('dark', 'dark-mode');
+      document.body.classList.add('light', 'light-mode');
     }
-  }, []);
+    try {
+      router.prefetch('/student/dashboard');
+      router.prefetch('/instructor/dashboard');
+      router.prefetch('/admin/dashboard');
+    } catch (e) {}
+  }, [router]);
 
   // Handle Tab Switch (Student vs Instructor Preset)
   const handleSignInTabChange = (tab: 'student' | 'instructor') => {
@@ -67,10 +76,10 @@ export default function AuthPage() {
 
     try {
       await loginWithCredentials(signInEmail, signInPassword);
+      // Keep loading true while page transitions to avoid form flashing back
     } catch (err: any) {
-      setErrorMsg(err.message || 'Authentication failed. Please check your credentials.');
-    } finally {
       setLoading(false);
+      setErrorMsg(err.message || 'Authentication failed. Please check your credentials.');
     }
   };
 
@@ -95,10 +104,10 @@ export default function AuthPage() {
         role: signUpRole,
         language: signUpLanguage,
       });
+      // Keep loading true while page transitions
     } catch (err: any) {
-      setErrorMsg(err.message || 'Registration failed. Please try again.');
-    } finally {
       setLoading(false);
+      setErrorMsg(err.message || 'Registration failed. Please try again.');
     }
   };
 
@@ -123,37 +132,39 @@ export default function AuthPage() {
     try {
       await loginWithSSO(ssoDomain);
     } catch (err: any) {
-      setErrorMsg(err.message || 'SSO Authorization failed.');
-    } finally {
       setLoading(false);
+      setErrorMsg(err.message || 'SSO Authorization failed.');
     }
   };
 
-  if (loading) {
-    return (
-      <PageLoader message="Authenticating User Credentials & Verifying Database Session..." />
-    );
-  }
+  const handleGoogleLoginClick = async () => {
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMsg(err?.message || 'Google sign in failed.');
+    }
+  };
 
   return (
-    <div className="min-h-screen w-full bg-zinc-50 dark:bg-zinc-950 text-black dark:text-white flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-y-auto">
+    <div className="min-h-screen w-full bg-zinc-50 text-black flex items-center justify-center p-3 sm:p-6 font-sans relative overflow-y-auto">
       {/* 📡 HIGH-END TELECOM & AI GRAPHICS BACKGROUND LAYER 🌐 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden select-none">
         {/* 1. Base Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black dark:block hidden" />
-        <div className="absolute inset-0 bg-gradient-to-br from-white via-zinc-50 to-zinc-100 dark:hidden block" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white via-zinc-50 to-zinc-100" />
 
         {/* 2. Architectural Dot & Grid Matrix Overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px] opacity-60" />
+        <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-70" />
 
         {/* 3. Glowing Ambient Mesh Orbs */}
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-black/5 dark:bg-white/5 blur-3xl animate-pulse" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-black/10 dark:bg-white/10 blur-3xl animate-pulse" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-zinc-200/40 dark:bg-zinc-800/20 blur-[120px]" />
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-black/5 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-black/10 blur-3xl animate-pulse" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-zinc-200/50 blur-[120px]" />
 
         {/* 4. Telecom Waveform Signal SVG Line Overlay */}
         <svg
-          className="absolute inset-0 w-full h-full opacity-20 text-black dark:text-white"
+          className="absolute inset-0 w-full h-full opacity-20 text-black"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
         >
@@ -171,19 +182,19 @@ export default function AuthPage() {
         </svg>
 
         {/* 5. Floating Telecom Graphic Node Pills */}
-        <div className="absolute top-12 left-12 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-[10px] font-mono font-bold shadow-md backdrop-blur-md animate-bounce">
-          <Radio className="w-3.5 h-3.5 text-black dark:text-white" />
-          <span className="text-zinc-600 dark:text-zinc-400">5G Core Network Node</span>
+        <div className="absolute top-12 left-12 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/90 border border-zinc-200 text-[10px] font-mono font-bold shadow-md backdrop-blur-md animate-bounce">
+          <Radio className="w-3.5 h-3.5 text-black" />
+          <span className="text-zinc-600">5G Core Network Node</span>
         </div>
 
-        <div className="absolute bottom-16 left-20 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-[10px] font-mono font-bold shadow-md backdrop-blur-md">
-          <Wifi className="w-3.5 h-3.5 text-black dark:text-white" />
-          <span className="text-zinc-600 dark:text-zinc-400">Optical Fiber Backbone • Active</span>
+        <div className="absolute bottom-16 left-20 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/90 border border-zinc-200 text-[10px] font-mono font-bold shadow-md backdrop-blur-md">
+          <Wifi className="w-3.5 h-3.5 text-black" />
+          <span className="text-zinc-600">Optical Fiber Backbone • Active</span>
         </div>
 
-        <div className="absolute top-20 right-16 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/80 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-[10px] font-mono font-bold shadow-md backdrop-blur-md">
-          <Zap className="w-3.5 h-3.5 text-black dark:text-white" />
-          <span className="text-zinc-600 dark:text-zinc-400">High Frequency Carrier Wave</span>
+        <div className="absolute top-20 right-16 hidden xl:flex items-center space-x-2 px-3 py-1.5 rounded-2xl bg-white/90 border border-zinc-200 text-[10px] font-mono font-bold shadow-md backdrop-blur-md">
+          <Zap className="w-3.5 h-3.5 text-black" />
+          <span className="text-zinc-600">High Frequency Carrier Wave</span>
         </div>
       </div>
 
@@ -251,7 +262,17 @@ export default function AuthPage() {
 
         {/* RIGHT SIDE: MONOCHROME BLACK & WHITE LOGIN CARD */}
         <div className="w-full lg:col-span-7 flex justify-center items-center">
-          <div className="w-full max-w-[450px] p-5 sm:p-8 rounded-3xl border border-zinc-300 bg-white text-black shadow-2xl relative transition-all duration-300 mx-auto">
+          <div className="w-full max-w-[450px] p-5 sm:p-8 rounded-3xl border border-zinc-300 bg-white text-black shadow-2xl relative transition-all duration-300 mx-auto overflow-hidden">
+
+            {/* In-Card Instant Loading & Transition Overlay (Spinner Only) */}
+            {loading && (
+              <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-30 flex items-center justify-center p-6 animate-in fade-in duration-200">
+                <div className="relative flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full border-[3px] border-zinc-200 border-t-black animate-spin" />
+                  <div className="absolute w-6 h-6 rounded-full border-[3px] border-zinc-300 border-b-black animate-spin [animation-direction:reverse]" />
+                </div>
+              </div>
+            )}
 
             {/* Card Header: Brand Icon */}
             <div className="flex items-center justify-between mb-4">
@@ -289,6 +310,7 @@ export default function AuthPage() {
               <div className="flex border-b border-zinc-200 pb-1 mb-3">
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => setAuthMode('signin')}
                   className={`pb-1.5 px-4 text-xs font-black transition-all border-b-2 ${
                     authMode === 'signin'
@@ -300,6 +322,7 @@ export default function AuthPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => setAuthMode('signup')}
                   className={`pb-1.5 px-4 text-xs font-black transition-all border-b-2 ${
                     authMode === 'signup'
@@ -317,6 +340,7 @@ export default function AuthPage() {
                   <div className="p-1 rounded-2xl border border-zinc-200 bg-zinc-100 grid grid-cols-2 gap-1 mb-3">
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleSignInTabChange('student')}
                       className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
                         activeLoginTab === 'student'
@@ -330,6 +354,7 @@ export default function AuthPage() {
 
                     <button
                       type="button"
+                      disabled={loading}
                       onClick={() => handleSignInTabChange('instructor')}
                       className={`py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
                         activeLoginTab === 'instructor'
@@ -352,10 +377,11 @@ export default function AuthPage() {
                         <input
                           type="text"
                           required
+                          disabled={loading}
                           value={signInEmail}
                           onChange={(e) => setSignInEmail(e.target.value)}
                           placeholder="e.g. student, instructor, or email"
-                          className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black"
+                          className="w-full pl-9 pr-3 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60"
                         />
                       </div>
                     </div>
@@ -367,6 +393,7 @@ export default function AuthPage() {
                         </label>
                         <button
                           type="button"
+                          disabled={loading}
                           onClick={() => setShowForgotModal(true)}
                           className="text-[10px] text-black font-extrabold hover:underline"
                         >
@@ -378,13 +405,15 @@ export default function AuthPage() {
                         <input
                           type={showPassword ? 'text' : 'password'}
                           required
+                          disabled={loading}
                           value={signInPassword}
                           onChange={(e) => setSignInPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-9 pr-9 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black"
+                          className="w-full pl-9 pr-9 py-2 rounded-xl text-xs font-medium focus:outline-none transition-colors border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60"
                         />
                         <button
                           type="button"
+                          disabled={loading}
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-2.5 text-zinc-400 hover:text-black"
                         >
@@ -402,10 +431,16 @@ export default function AuthPage() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3 rounded-2xl bg-black hover:bg-zinc-800 text-white font-black text-xs shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+                      className="w-full py-3 rounded-2xl bg-black hover:bg-zinc-800 disabled:bg-zinc-700 text-white font-black text-xs shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
                     >
-                      <span>{loading ? 'Authenticating...' : `Sign in as ${activeLoginTab === 'student' ? 'Student' : 'Instructor'}`}</span>
-                      <ArrowRight className="w-4 h-4" />
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <span>Sign in as {activeLoginTab === 'student' ? 'Student' : 'Instructor'}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
                     </button>
                   </form>
 
@@ -414,8 +449,9 @@ export default function AuthPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={loginWithGoogle}
-                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs"
+                        disabled={loading}
+                        onClick={handleGoogleLoginClick}
+                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 disabled:opacity-60 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs disabled:cursor-not-allowed"
                       >
                         <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">Google Sign In</span>
@@ -423,8 +459,9 @@ export default function AuthPage() {
 
                       <button
                         type="button"
+                        disabled={loading}
                         onClick={() => setShowSSOModal(true)}
-                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs"
+                        className="py-2.5 px-2 rounded-xl border border-zinc-300 bg-white text-black hover:bg-zinc-50 disabled:opacity-60 text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 transition-all shadow-xs disabled:cursor-not-allowed"
                       >
                         <Building2 className="w-3.5 h-3.5 text-black shrink-0" />
                         <span className="truncate">Enterprise SSO</span>
@@ -440,10 +477,11 @@ export default function AuthPage() {
                     <input
                       type="text"
                       required
+                      disabled={loading}
                       placeholder="Ayush Kumar"
                       value={signUpFullName}
                       onChange={(e) => setSignUpFullName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black"
+                      className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60"
                     />
                   </div>
 
@@ -452,10 +490,11 @@ export default function AuthPage() {
                     <input
                       type="email"
                       required
+                      disabled={loading}
                       placeholder="ayush.kumar@gmail.com"
                       value={signUpEmail}
                       onChange={(e) => setSignUpEmail(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black"
+                      className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60"
                     />
                   </div>
 
@@ -465,19 +504,21 @@ export default function AuthPage() {
                       <input
                         type="password"
                         required
+                        disabled={loading}
                         placeholder="••••••••"
                         value={signUpPassword}
                         onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black"
+                        className="w-full px-3 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-bold mb-1 text-zinc-700">Account Type</label>
                       <select
+                        disabled={loading}
                         value={signUpRole}
                         onChange={(e) => setSignUpRole(e.target.value as UserRole)}
-                        className="w-full px-2 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black font-bold"
+                        className="w-full px-2 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black font-bold disabled:opacity-60"
                       >
                         <option value="student">Student Learner</option>
                         <option value="instructor">Course Instructor</option>
@@ -494,10 +535,16 @@ export default function AuthPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 rounded-2xl bg-black hover:bg-zinc-800 text-white font-black text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                    className="w-full py-3 rounded-2xl bg-black hover:bg-zinc-800 disabled:bg-zinc-700 text-white font-black text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    <span>{loading ? 'Creating Profile...' : 'Save & Register Account'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    ) : (
+                      <>
+                        <span>Save & Register Account</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </form>
               )}

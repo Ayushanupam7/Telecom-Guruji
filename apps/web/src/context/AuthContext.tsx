@@ -197,6 +197,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Supabase session init notice:', e);
       }
 
+      // Check localStorage cached session fallback
+      if (typeof window !== 'undefined') {
+        try {
+          const savedSession = localStorage.getItem('signalhub_user_session');
+          if (savedSession) {
+            const parsed = JSON.parse(savedSession);
+            if (parsed && parsed.id && parsed.email) {
+              setUser(parsed);
+              return;
+            }
+          }
+        } catch (e) {
+          console.log('Local session parse notice:', e);
+        }
+      }
+
       setUser(null);
     };
 
@@ -264,7 +280,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 2. GUARANTEED INSERT: Upsert profile row into Supabase Database 'profiles' table via supabaseAdmin
     try {
-      // Create SHA-256 / Base64 password representation for fallback custom table validation
       const passHash = typeof window !== 'undefined' ? btoa(password) : password;
       const currentTheme = (typeof window !== 'undefined' ? localStorage.getItem('signalhub-theme') : 'light') || 'light';
 
@@ -305,9 +320,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider: 'supabase',
     };
 
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('signalhub_user_session', JSON.stringify(sessionObj));
+    }
     setUser(sessionObj);
-
-    alert(`✅ New user ${fullName} (${email}) created and saved to live Supabase DB table!`);
 
     if (role === 'instructor') {
       router.push('/instructor/dashboard');
@@ -333,6 +349,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isAuthenticated = false;
     let realName = formatRealNameFromEmail(cleanEmail);
     let role: UserRole = input.includes('instructor') ? 'instructor' : input.includes('admin') || input.includes('dev') ? 'admin' : 'student';
+    let existingAvatarUrl: string | undefined = undefined;
+    let existingLang = 'en';
+    let existingAge = 21;
 
     // 1. Check Supabase profiles table by email or username match
     try {
@@ -348,16 +367,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userId = p.id;
         realName = p.full_name || realName;
         role = (p.role as UserRole) || role;
+        existingAvatarUrl = p.avatar_url;
+        existingLang = p.preferred_language || 'en';
+        existingAge = p.age || 21;
 
         if (p.theme_preference === 'dark' || p.theme_preference === 'light') {
           if (typeof window !== 'undefined') {
             localStorage.setItem('signalhub-theme', p.theme_preference);
             if (p.theme_preference === 'dark') {
-              document.documentElement.classList.add('dark');
-              document.documentElement.classList.remove('light');
+              document.documentElement.classList.remove('light', 'light-mode');
+              document.documentElement.classList.add('dark', 'dark-mode');
+              document.body.classList.remove('light', 'light-mode');
+              document.body.classList.add('dark', 'dark-mode');
             } else {
-              document.documentElement.classList.remove('dark');
-              document.documentElement.classList.add('light');
+              document.documentElement.classList.remove('dark', 'dark-mode');
+              document.documentElement.classList.add('light', 'light-mode');
+              document.body.classList.remove('dark', 'dark-mode');
+              document.body.classList.add('light', 'light-mode');
             }
           }
         }
@@ -366,7 +392,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Profiles DB search notice:', e);
     }
 
-    // 2. Try Supabase Auth password sign-in
+    // 2. Try Supabase Auth password sign-in if not yet matched
     if (!isAuthenticated) {
       try {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -380,13 +406,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (authData.user.user_metadata?.full_name) {
             realName = authData.user.user_metadata.full_name;
           }
+          if (authData.user.user_metadata?.role) {
+            role = authData.user.user_metadata.role as UserRole;
+          }
         }
       } catch (err: any) {
         console.log('Supabase Auth login notice:', err?.message || err);
       }
     }
 
-    // 3. Fallback seamless login for any valid student or instructor username & password
+    // 3. Fallback seamless login for any valid demo account or general password
     if (!isAuthenticated) {
       const isDemoAccount = ['student', 'student@signalhub.app', 'instructor', 'instructor@signalhub.app', 'admin', 'admin@signalhub.app', 'dev', 'ansh'].includes(input);
       if (isDemoAccount && (password === 'Password123!' || password === 'dev123' || password.length >= 3)) {
@@ -398,49 +427,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // UPDATE STUDENT LOGIN TIME IN SUPABASE DATABASE (Preserving existing avatar_url)
-    let existingAvatarUrl: string | undefined = undefined;
-    let existingLang = 'en';
-    let existingAge = 21;
-
-    try {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (profile) {
-        existingAvatarUrl = profile.avatar_url;
-        existingLang = profile.preferred_language || 'en';
-        existingAge = profile.age || 21;
-        realName = profile.full_name || realName;
-        role = profile.role || role;
-      }
-    } catch (e) {
-      console.log('Login profile fetch notice:', e);
-    }
-
     if (!existingAvatarUrl && typeof window !== 'undefined') {
       const cachedAvatar = localStorage.getItem(`signalhub-avatar-${userId}`);
       if (cachedAvatar) existingAvatarUrl = cachedAvatar;
     }
 
-    try {
-      await supabaseAdmin.from('profiles').upsert({
-        id: userId,
-        email: cleanEmail,
-        full_name: realName,
-        role: role,
-        age: existingAge,
-        preferred_language: existingLang,
-        avatar_url: existingAvatarUrl,
-        last_login_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.log('Login timestamp update notice:', e);
-    }
+    // Non-blocking async update of last_login_at in database
+    (async () => {
+      try {
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          email: cleanEmail,
+          full_name: realName,
+          role: role,
+          age: existingAge,
+          preferred_language: existingLang,
+          avatar_url: existingAvatarUrl,
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.log('Login timestamp update notice:', e);
+      }
+    })();
 
     const session: UserSession = {
       id: userId,

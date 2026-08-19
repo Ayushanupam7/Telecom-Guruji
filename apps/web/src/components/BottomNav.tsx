@@ -14,8 +14,8 @@ export function BottomNav() {
   const { user } = useAuth();
   const isLight = theme === 'light';
 
-  // 1. Hide Bottom Navigation on Authentication Page (/auth)
-  if (pathname === '/auth') {
+  // 1. Hide Bottom Navigation on Authentication (/auth) and Instructor Studio (/instructor)
+  if (pathname === '/auth' || pathname.startsWith('/instructor')) {
     return null;
   }
 

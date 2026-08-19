@@ -5,7 +5,16 @@ import { ta } from './ta';
 import { te } from './te';
 import { kn } from './kn';
 import { ml } from './ml';
-import { CATEGORY_MAP, COURSE_TRANSLATIONS, GENERIC_SUMMARY_TRANSLATIONS, MODULE_TRANSLATIONS, SLIDE_TRANSLATIONS } from './courses';
+import { 
+  CATEGORY_MAP, 
+  COURSE_TRANSLATIONS, 
+  GENERIC_SUMMARY_TRANSLATIONS, 
+  MODULE_TRANSLATIONS, 
+  SLIDE_TRANSLATIONS,
+  QUESTION_TRANSLATIONS,
+  OPTION_TRANSLATIONS,
+  EXPLANATION_TRANSLATIONS
+} from './courses';
 
 export const UI_DICTIONARIES = {
   en,
@@ -139,3 +148,75 @@ export function translateSlideBody(originalBody: string, slideTitle: string, lan
 
   return originalBody;
 }
+
+export function translateQuestionText(originalQuestion: string, lang: string): string {
+  if (lang === 'en' || !lang) return originalQuestion;
+  const match = QUESTION_TRANSLATIONS[originalQuestion];
+  if (match && match[lang]) {
+    return match[lang];
+  }
+
+  for (const qKey of Object.keys(QUESTION_TRANSLATIONS)) {
+    if (originalQuestion.toLowerCase().includes(qKey.toLowerCase()) || qKey.toLowerCase().includes(originalQuestion.toLowerCase())) {
+      if (QUESTION_TRANSLATIONS[qKey][lang]) {
+        return QUESTION_TRANSLATIONS[qKey][lang];
+      }
+    }
+  }
+
+  return originalQuestion;
+}
+
+export function translateOptionText(originalOption: string, lang: string): string {
+  if (lang === 'en' || !lang) return originalOption;
+  const match = OPTION_TRANSLATIONS[originalOption];
+  if (match && match[lang]) {
+    return match[lang];
+  }
+
+  for (const oKey of Object.keys(OPTION_TRANSLATIONS)) {
+    if (originalOption.toLowerCase().includes(oKey.toLowerCase()) || oKey.toLowerCase().includes(originalOption.toLowerCase())) {
+      if (OPTION_TRANSLATIONS[oKey][lang]) {
+        return OPTION_TRANSLATIONS[oKey][lang];
+      }
+    }
+  }
+
+  return originalOption;
+}
+
+export function translateExplanation(originalExpl: string, lang: string): string {
+  if (lang === 'en' || !lang) return originalExpl;
+  const match = EXPLANATION_TRANSLATIONS[originalExpl];
+  if (match && match[lang]) {
+    return match[lang];
+  }
+
+  for (const eKey of Object.keys(EXPLANATION_TRANSLATIONS)) {
+    if (originalExpl.toLowerCase().includes(eKey.toLowerCase()) || eKey.toLowerCase().includes(originalExpl.toLowerCase())) {
+      if (EXPLANATION_TRANSLATIONS[eKey][lang]) {
+        return EXPLANATION_TRANSLATIONS[eKey][lang];
+      }
+    }
+  }
+
+  return originalExpl;
+}
+
+export function translateQuizTitle(originalTitle: string, lang: string): string {
+  if (lang === 'en' || !lang) return originalTitle;
+  const dict = getDictionary(lang);
+
+  const modMatch = originalTitle.match(/^Module\s+(\d+)\s*(Assessment\s*Quiz|Comprehension\s*Check|Quiz)?/i);
+  if (modMatch) {
+    const num = modMatch[1];
+    return `${dict.moduleWord || 'Module'} ${num} ${dict.moduleQuiz || 'Quiz'}`;
+  }
+
+  if (originalTitle.toLowerCase().includes('final') || originalTitle.toLowerCase().includes('mastery')) {
+    return dict.finalAssessment || 'Final Assessment';
+  }
+
+  return originalTitle;
+}
+

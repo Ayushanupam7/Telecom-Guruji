@@ -1,10 +1,7 @@
 import React from 'react';
 import { Roboto, Roboto_Mono } from 'next/font/google';
 import './globals.css';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
-import { BottomNav } from '@/components/BottomNav';
-import { QuickToolsDrawer } from '@/components/QuickToolsDrawer';
+import { AppShell } from '@/components/AppShell';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { LanguageProvider } from '@/context/LanguageContext';
@@ -47,13 +44,9 @@ export default function RootLayout({
           <AuthProvider>
             <LanguageProvider>
               <ToastProvider>
-                <Header />
-                <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6 lg:pb-8">
+                <AppShell>
                   {children}
-                </main>
-                <BottomNav />
-                <QuickToolsDrawer />
-                <Footer />
+                </AppShell>
               </ToastProvider>
             </LanguageProvider>
           </AuthProvider>
@@ -62,3 +55,4 @@ export default function RootLayout({
     </html>
   );
 }
+

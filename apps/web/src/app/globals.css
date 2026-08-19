@@ -39,7 +39,7 @@
 }
 
 /* STRICT PURE BLACK & WHITE MONOCHROME THEME */
-.dark-mode {
+.dark-mode, html.dark, body.dark {
   --foreground-rgb: 255, 255, 255;
   --bg-color: #000000;
   background-color: #000000;
@@ -47,13 +47,13 @@
   min-height: 100vh;
 }
 
-.dark-mode .glass-panel {
+.dark-mode .glass-panel, html.dark .glass-panel, body.dark .glass-panel {
   background: #09090b;
   border: 1px solid #27272a;
   border-radius: 0.75rem;
 }
 
-.light-mode {
+.light-mode, html.light, body.light {
   --foreground-rgb: 0, 0, 0;
   --bg-color: #ffffff;
   background-color: #ffffff;
@@ -61,7 +61,7 @@
   min-height: 100vh;
 }
 
-.light-mode .glass-panel {
+.light-mode .glass-panel, html.light .glass-panel, body.light .glass-panel {
   background: #ffffff;
   border: 1px solid #e4e4e7;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);

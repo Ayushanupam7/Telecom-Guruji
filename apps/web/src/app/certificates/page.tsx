@@ -66,31 +66,55 @@ export default function CertificatesHubPage() {
               .eq('student_id', user.id)
               .in('course_id', courseIds);
 
+            const { data: dbCerts } = await supabaseAdmin
+              .from('certificates')
+              .select('*')
+              .or(`student_id.eq.${user.id},student_name.eq.${user.fullName || ''}`);
+
+            const { data: dbQuizzes } = await supabaseAdmin
+              .from('quiz_attempts')
+              .select('*')
+              .or(`student_id.eq.${user.id},student_email.eq.${user.email}`)
+              .eq('is_passed', true);
+
             const coursesMap = new Map((dbCourses || []).map((c) => [c.id, c]));
 
             items = dbEnrollments.map((enr) => {
               const cObj = coursesMap.get(enr.course_id);
 
               const userProgressList = (dbProgress || []).filter(
-                (p) => p.course_id === enr.course_id && p.completed === true
+                (p) => (p.course_id === enr.course_id || p.course_id === cObj?.id) && (p.is_completed === true || p.completed === true)
+              );
+
+              const hasCert = (dbCerts || []).some(
+                (cert) => cert.course_id === enr.course_id || cert.course_id === cObj?.id
+              );
+
+              const hasFinalExam = (dbQuizzes || []).some(
+                (q) => (q.course_id === enr.course_id || q.course_id === cObj?.id) && (q.quiz_id === 'final-exam' || q.quiz_id?.includes('final'))
               );
 
               const totalModules = cObj?.modules?.length || 4;
               const completedCount = userProgressList.length;
-              const calcPercent = Math.min(
+              let calcPercent = Math.min(
                 100,
-                Math.round((completedCount / totalModules) * 100) || enr.progress_percent || 0
+                Math.round((completedCount / totalModules) * 100) || Number(enr.progress_percent) || 0
               );
+
+              const isDone = hasCert || hasFinalExam || enr.status === 'completed' || Number(enr.progress_percent) >= 100 || calcPercent >= 100;
+              if (isDone) {
+                calcPercent = 100;
+              }
 
               return {
                 course_id: enr.course_id,
-                title: cObj?.title || 'Verified Engineering Course',
+                title: cObj?.title || 'Verified Course',
                 category: cObj?.category || 'Computer Science',
                 thumbnail_url: cObj?.thumbnail_url || undefined,
                 thumbnail_type: (cObj as any)?.thumbnail_type || 'image',
                 instructor_name: cObj?.trainer_name || getInstructorNameForCourse(enr.course_id) || 'Dr. Ayush Sharma',
                 progress_percent: calcPercent,
-                is_completed: calcPercent >= 100 || enr.status === 'completed',
+                is_completed: isDone,
                 enrolled_at: enr.enrolled_at,
               };
             });
@@ -146,41 +170,41 @@ export default function CertificatesHubPage() {
   const completedCount = courses.filter((c) => c.is_completed).length;
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto font-sans pb-16">
+    <div className="space-y-6 sm:space-y-8 max-w-6xl mx-auto font-sans pb-16 px-3 sm:px-6">
       {/* HEADER SECTION (MONOCHROME BLACK & WHITE) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="space-y-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 pb-4 sm:pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="space-y-1.5 sm:space-y-2">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-black text-white dark:bg-white dark:text-black text-xs font-mono font-bold uppercase tracking-wider">
             <Award className="w-3.5 h-3.5" />
             <span>Verified Credentials Hub</span>
           </div>
-          <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${isLight ? 'text-black' : 'text-white'}`}>
+          <h1 className={`text-xl sm:text-3xl font-black tracking-tight ${isLight ? 'text-black' : 'text-white'}`}>
             My Verified Certificates
           </h1>
           <p className="text-xs text-zinc-500 max-w-xl font-medium leading-relaxed">
-            View, preview, and download HD printable certificates for all your enrolled engineering courses. Complete courses to 100% to unlock download!
+            View, preview, and download HD printable certificates for all your enrolled courses. Complete courses to 100% to unlock download!
           </p>
         </div>
 
         {/* STATS BADGE */}
-        <div className={`p-5 rounded-3xl border-2 flex items-center space-x-4 shrink-0 transition-all ${
+        <div className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl border-2 flex items-center space-x-3.5 sm:space-x-4 shrink-0 transition-all ${
           isLight ? 'bg-white border-zinc-300 text-black shadow-md' : 'bg-zinc-950 border-zinc-400 text-white shadow-xl'
         }`}>
-          <div className="w-12 h-12 rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center shadow-md">
-            <Award className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-black text-white dark:bg-white dark:text-black flex items-center justify-center shadow-md shrink-0">
+            <Award className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <span className="text-xl font-black text-black dark:text-white block">{completedCount} / {courses.length}</span>
-            <span className="text-[11px] font-mono text-zinc-500 uppercase font-bold">Certificates Unlocked</span>
+            <span className="text-lg sm:text-xl font-black text-black dark:text-white block">{completedCount} / {courses.length}</span>
+            <span className="text-[10px] sm:text-[11px] font-mono text-zinc-500 uppercase font-bold">Certificates Unlocked</span>
           </div>
         </div>
       </div>
 
       {/* FILTER TABS (MONOCHROME BLACK & WHITE) */}
-      <div className="flex items-center space-x-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto">
+      <div className="flex items-center space-x-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setFilterTab('all')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition-all shrink-0 border ${
+          className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-black transition-all shrink-0 border cursor-pointer ${
             filterTab === 'all'
               ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-md'
               : 'text-zinc-500 hover:text-black dark:hover:text-white border-transparent'
@@ -226,7 +250,7 @@ export default function CertificatesHubPage() {
             No Certificates In This Category
           </h3>
           <p className="text-xs text-zinc-500 max-w-sm mx-auto font-medium">
-            Browse the course catalog to enroll in engineering courses and start earning verified certificates!
+            Browse the course catalog to enroll in courses and start earning verified certificates!
           </p>
           <Link
             href="/courses"

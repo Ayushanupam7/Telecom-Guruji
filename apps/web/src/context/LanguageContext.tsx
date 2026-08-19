@@ -17,33 +17,52 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   const [language, setLanguageState] = useState<string>('en');
 
-  // Load language from localStorage or user profile on mount / user change
+  // Load language directly from Supabase user profile on mount / user change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedLang = localStorage.getItem('signalhub-lang');
-      if (savedLang) {
-        setLanguageState(savedLang);
-      } else if (user?.language) {
-        setLanguageState(user.language);
+    if (!user?.id && !user?.email) return;
+
+    async function loadSupabaseLanguage() {
+      try {
+        let query = supabaseAdmin.from('profiles').select('preferred_language');
+        if (user?.id) {
+          query = query.eq('id', user.id);
+        } else if (user?.email) {
+          query = query.eq('email', user.email);
+        }
+        const { data } = await query.limit(1);
+        if (data && data[0]?.preferred_language) {
+          setLanguageState(data[0].preferred_language);
+        } else if (user?.language) {
+          setLanguageState(user.language);
+        }
+      } catch (e) {
+        console.warn('Language Supabase load notice:', e);
       }
     }
-  }, [user]);
+
+    loadSupabaseLanguage();
+  }, [user?.id, user?.email, user?.language]);
 
   const setLanguage = async (newLang: string) => {
     setLanguageState(newLang);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('signalhub-lang', newLang);
-    }
 
-    // Persist language to Supabase profile if user is logged in
-    if (user?.id) {
+    // Persist language directly to Supabase profile
+    if (user?.id || user?.email) {
       try {
-        await supabaseAdmin.from('profiles').update({
+        let updateQuery = supabaseAdmin.from('profiles').update({
           preferred_language: newLang,
           updated_at: new Date().toISOString(),
-        }).eq('id', user.id);
+        });
+
+        if (user?.id) {
+          updateQuery = updateQuery.eq('id', user.id);
+        } else {
+          updateQuery = updateQuery.eq('email', user.email);
+        }
+
+        await updateQuery;
       } catch (e) {
-        console.log('Language Supabase sync notice:', e);
+        console.warn('Language Supabase sync notice:', e);
       }
     }
   };
