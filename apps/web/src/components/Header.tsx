@@ -80,13 +80,16 @@ export function Header({ }: HeaderProps) {
         {/* BRAND LOGO */}
         <div className="flex items-center space-x-10">
           <Link href={dashboardPath} className="flex items-center space-x-3 group shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 text-black dark:text-white flex items-center justify-center shadow-sm">
-              <Signal className="w-5 h-5 text-black dark:text-white" />
-            </div>
-            <span className={`text-xl sm:text-2xl font-black tracking-tight font-sans ${isLight ? 'text-black' : 'text-white'
-              }`}>
-              Telecom Guruji
-            </span>
+            <img
+              src={isLight ? '/logo-light.png' : '/logo-dark.png'}
+              alt="Telecom Guruji Logo"
+              className="h-9 sm:h-11 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+            />
+            {!isLight && (
+              <span className="text-xl sm:text-2xl font-black tracking-tight font-sans text-white">
+                Telecom Guruji
+              </span>
+            )}
           </Link>
 
           {/* CENTER NAVIGATION LINKS */}
