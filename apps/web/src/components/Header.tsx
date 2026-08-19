@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   Signal, BookOpen, Award, Menu, X, Code, GraduationCap,
   School, Sun, Moon, LogOut, ChevronDown, Settings, Layers
@@ -19,8 +19,6 @@ interface HeaderProps {
 export function Header({ }: HeaderProps) {
   const rawPathname = usePathname();
   const pathname = rawPathname || '';
-  const searchParams = useSearchParams();
-  const currentTab = searchParams?.get('tab') || '';
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { dict } = useLanguage();

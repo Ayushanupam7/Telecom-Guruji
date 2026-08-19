@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PageLoader } from '@/components/PageLoader';
 import {
   Plus,
   BookOpen,
@@ -830,7 +833,7 @@ function InstructorSettingsTab({
   );
 }
 
-export default function InstructorDashboardPage() {
+function InstructorDashboardContent() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { showToast } = useToast();
