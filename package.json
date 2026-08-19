@@ -1,8 +1,8 @@
 {
-  "name": "signalhub",
+  "name": "Telecom Guruji",
   "private": true,
   "version": "1.0.0",
-  "description": "SignalHub - AI-Powered Learning and Course Platform",
+  "description": "Telecom Guruji",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -39,5 +39,3 @@
     "react-dom": "18.3.1"
   }
 }
-
-

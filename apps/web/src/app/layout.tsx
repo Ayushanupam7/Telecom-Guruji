@@ -22,8 +22,8 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata = {
-  title: 'Telecom Guruji — AI-Powered Learning & Verification Platform',
-  description: 'Telecom Guruji verifies meaningful learning progress through structured modules, video engagement tracking, and randomized quiz assessments.',
+  title: 'Telecom Guruji - E-Learning Platform',
+  description: 'Telecom Guruji is an E-Learning platform for telecom & engineering education with structured modules, video courses, and verified certificates.',
   icons: {
     icon: '/icon.svg',
     shortcut: '/favicon.ico',

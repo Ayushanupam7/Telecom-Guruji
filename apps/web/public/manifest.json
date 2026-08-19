@@ -1,7 +1,7 @@
 {
   "name": "Telecom Guruji",
   "short_name": "Telecom Guruji",
-  "description": "AI-Powered Learning & Verification Platform",
+  "description": "E-Learning Platform for Telecom & Engineering Education",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
