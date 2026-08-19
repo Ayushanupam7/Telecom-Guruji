@@ -205,9 +205,11 @@ export default function AuthPage() {
         {/* LEFT SIDE: COMPACT APP DETAILS (BLACK & WHITE) */}
         <div className="lg:col-span-5 space-y-4 text-left hidden lg:block pr-2">
           <Link href="/" className="inline-flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-white border border-zinc-200 text-black flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-300">
-              <Signal className="w-5 h-5 text-black" />
-            </div>
+            <img
+              src="/logo-light.png"
+              alt="Telecom Guruji Logo"
+              className="h-16 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+            />
             <div>
               <span className="text-2xl font-black tracking-tight text-black">
                 Telecom Guruji
@@ -279,9 +281,11 @@ export default function AuthPage() {
             {/* Card Header: Brand Icon */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-9 h-9 rounded-xl bg-white border border-zinc-200 text-black flex items-center justify-center shadow-xs">
-                  <Signal className="w-4 h-4 text-black" />
-                </div>
+                <img
+                  src="/logo-light.png"
+                  alt="Telecom Guruji Logo"
+                  className="h-12 w-auto object-contain"
+                />
                 <div>
                   <h2 className="text-base font-black tracking-tight text-black">
                     Telecom Guruji
