@@ -127,24 +127,16 @@ export function Header({ }: HeaderProps) {
               <>
                 <Link
                   href="/instructor/dashboard"
-                  className={`transition-colors py-1.5 ${
-                    (pathname === '/instructor/dashboard' || pathname === '/instructor') && currentTab !== 'courses'
-                      ? (isLight ? 'text-black font-black border-b-2 border-black' : 'text-white font-black border-b-2 border-white')
-                      : (isLight ? 'text-zinc-600 hover:text-black font-bold' : 'text-zinc-400 hover:text-white font-bold')
-                  }`}
+                  className={`transition-colors py-1.5 ${getNavLinkClass('/instructor/dashboard')}`}
                 >
                   Instructor Studio
                 </Link>
 
                 <Link
-                  href="/instructor/dashboard?tab=courses"
-                  className={`transition-colors py-1.5 ${
-                    (pathname === '/instructor/dashboard' || pathname === '/instructor') && currentTab === 'courses'
-                      ? (isLight ? 'text-black font-black border-b-2 border-black' : 'text-white font-black border-b-2 border-white')
-                      : (isLight ? 'text-zinc-600 hover:text-black font-bold' : 'text-zinc-400 hover:text-white font-bold')
-                  }`}
+                  href="/courses"
+                  className={`transition-colors py-1.5 ${getNavLinkClass('/courses')}`}
                 >
-                  My Courses
+                  Course Catalog
                 </Link>
               </>
             )}

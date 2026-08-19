@@ -1962,3 +1962,11 @@ function InstructorDashboardContent() {
     </div>
   );
 }
+
+export default function InstructorDashboardPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <InstructorDashboardContent />
+    </Suspense>
+  );
+}

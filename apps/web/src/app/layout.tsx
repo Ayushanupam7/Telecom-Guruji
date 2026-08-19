@@ -40,8 +40,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <body className={`${roboto.className} font-sans min-h-screen flex flex-col antialiased tracking-normal relative`}>
-        <ThemeProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <LanguageProvider>
               <ToastProvider>
                 <AppShell>
@@ -49,8 +49,8 @@ export default function RootLayout({
                 </AppShell>
               </ToastProvider>
             </LanguageProvider>
-          </AuthProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );
