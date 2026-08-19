@@ -26,7 +26,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const pathname = usePathname() || '';
   const isAuthPage = pathname === '/auth' || pathname.startsWith('/auth');
-  const [theme, setTheme] = useState<Theme>('light'); // DEFAULT TO LIGHT MODE
+
+  // Read localStorage synchronously so first paint uses the correct theme
+  // (avoids flash of light mode for dark-mode users before Supabase resolves)
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme_preference') as Theme | null;
+      if (stored === 'dark' || stored === 'light') return stored;
+    }
+    return 'light'; // default
+  });
 
   const applyDomTheme = (targetTheme: Theme, isAuth: boolean) => {
     if (typeof window !== 'undefined') {
@@ -90,6 +99,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           if (dbTheme === 'dark' || dbTheme === 'light') {
             console.log(`🌙 AUTOMATICALLY RESTORED ${dbTheme.toUpperCase()} THEME FROM SUPABASE DB FOR ${user?.email || user?.id}`);
             applyTheme(dbTheme as Theme);
+            // Persist to localStorage so next page load is instant
+            localStorage.setItem('theme_preference', dbTheme);
             return;
           }
         } catch (e) {
@@ -99,6 +110,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
       // Default to Light Mode
       applyTheme('light');
+      localStorage.setItem('theme_preference', 'light');
     }
 
     syncDatabaseTheme();
@@ -190,11 +202,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = async () => {
     const nextTheme: Theme = theme === 'dark' ? 'light' : 'dark';
     applyTheme(nextTheme);
+    localStorage.setItem('theme_preference', nextTheme);
     await syncThemeToSupabase(nextTheme);
   };
 
   const setThemePreference = async (newTheme: Theme) => {
     applyTheme(newTheme);
+    localStorage.setItem('theme_preference', newTheme);
     await syncThemeToSupabase(newTheme);
   };
 
