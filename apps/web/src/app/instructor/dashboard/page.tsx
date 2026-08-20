@@ -41,6 +41,13 @@ import {
   Moon,
   ChevronRight,
   ChevronLeft,
+  GraduationCap,
+  CreditCard,
+  QrCode,
+  FileText,
+  CheckCircle,
+  Activity,
+  TrendingDown,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -393,7 +400,6 @@ function InstructorSettingsTab({
       // 2. Persist directly to Supabase profiles
       let updateQuery = supabaseAdmin.from('profiles').update({
         preferred_language: settings.language,
-        theme_preference: theme,
         search_history: updatedSearchHistory,
         updated_at: new Date().toISOString(),
       });
@@ -833,6 +839,82 @@ function InstructorSettingsTab({
   );
 }
 
+function CourseStatusBadge({
+  isPublished,
+  className = '',
+  tooltipPosition = 'top',
+}: {
+  isPublished?: boolean;
+  className?: string;
+  tooltipPosition?: 'top' | 'bottom';
+}) {
+  return (
+    <div className={`relative group/status inline-block select-none ${className}`}>
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider cursor-help transition-all duration-300 shadow-sm backdrop-blur-md ${
+          isPublished
+            ? 'bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/25 shadow-emerald-500/10'
+            : 'bg-amber-500/20 dark:bg-amber-500/25 text-amber-900 dark:text-amber-300 border border-amber-500/50 hover:border-amber-500/80 hover:bg-amber-500/30 ring-2 ring-amber-500/20 dark:ring-amber-500/30 shadow-amber-500/10 animate-pulse'
+        }`}
+      >
+        {/* Pulsing Animated Indicator Dot */}
+        <span className="relative flex h-2 w-2 mr-1.5 shrink-0">
+          <span
+            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+              isPublished ? 'bg-emerald-400' : 'bg-amber-400'
+            }`}
+          />
+          <span
+            className={`relative inline-flex rounded-full h-2 w-2 ${
+              isPublished ? 'bg-emerald-500' : 'bg-amber-500 shadow-sm shadow-amber-500/50'
+            }`}
+          />
+        </span>
+        <span className="font-mono tracking-tight font-black">
+          {isPublished ? 'Live Published' : 'Draft Mode'}
+        </span>
+      </span>
+
+      {/* Floating Animated Tooltip with Smooth Scale/Fade Animation */}
+      <div
+        className={`absolute left-0 w-60 p-2.5 rounded-xl bg-zinc-950/95 dark:bg-zinc-900/95 backdrop-blur-md text-white text-[11px] shadow-2xl border pointer-events-none opacity-0 scale-95 transition-all duration-200 ease-out z-50 ${
+          isPublished ? 'border-emerald-500/40 shadow-emerald-500/10' : 'border-amber-500/50 shadow-amber-500/15'
+        } ${
+          tooltipPosition === 'top'
+            ? 'bottom-full mb-2 -translate-y-1 group-hover/status:opacity-100 group-hover/status:scale-100 group-hover/status:translate-y-0'
+            : 'top-full mt-2 translate-y-1 group-hover/status:opacity-100 group-hover/status:scale-100 group-hover/status:translate-y-0'
+        }`}
+      >
+        <div className="flex items-center gap-1.5 font-bold mb-1">
+          {isPublished ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shrink-0" />
+              <span className="text-emerald-400 font-black uppercase text-[10px] tracking-wider">🟢 Live in Catalog</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block shrink-0" />
+              <span className="text-amber-400 font-black uppercase text-[10px] tracking-wider">⚠️ Unpublished Draft</span>
+            </>
+          )}
+        </div>
+        <p className="text-zinc-300 leading-relaxed text-[10.5px]">
+          {isPublished
+            ? 'Active in public catalog. Enrolled students can access lectures, take quizzes, and earn certificates.'
+            : 'Private to instructor. Not listed in public catalog until you click the Globe button to publish.'}
+        </p>
+        <div
+          className={`absolute left-4 border-4 border-transparent ${
+            tooltipPosition === 'top'
+              ? 'top-full -mt-[1px] border-t-zinc-950 dark:border-t-zinc-900'
+              : 'bottom-full -mb-[1px] border-b-zinc-950 dark:border-b-zinc-900'
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
+
 function InstructorDashboardContent() {
   const { theme } = useTheme();
   const { user } = useAuth();
@@ -845,9 +927,17 @@ function InstructorDashboardContent() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('dashboard');
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [courseFilter, setCourseFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Student Roster Filter States
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [studentCourseFilter, setStudentCourseFilter] = useState<string>('all');
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>('all');
 
   // Stats
   const [totalStudents, setTotalStudents] = useState(0);
@@ -870,7 +960,7 @@ function InstructorDashboardContent() {
     }
   }, [tabFromQuery]);
 
-  // Fetch real courses and stats from Supabase
+  // Fetch real courses, enrollments, quizzes, certificates, and reviews from Supabase
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -889,34 +979,50 @@ function InstructorDashboardContent() {
       // 2. Fetch all enrollments (including amount_paid for revenue)
       const { data: dbEnrollments, error: enrollErr } = await supabaseAdmin
         .from('enrollments')
-        .select('*');
+        .select('*')
+        .order('enrolled_at', { ascending: false });
 
       if (enrollErr) console.warn('Enrollment query issue:', enrollErr);
 
       const rawEnrollments = dbEnrollments || [];
       setEnrollments(rawEnrollments);
 
-      // Map enrollments count by course
-      const enrollmentCountByCourse: Record<string, number> = {};
-      rawEnrollments.forEach((enr: any) => {
-        if (enr.course_id) {
-          enrollmentCountByCourse[enr.course_id] = (enrollmentCountByCourse[enr.course_id] || 0) + 1;
-        }
-      });
+      // 3. Fetch all quiz attempts
+      const { data: dbQuizzes, error: quizErr } = await supabaseAdmin
+        .from('quiz_attempts')
+        .select('*')
+        .order('attempted_at', { ascending: false });
+
+      if (quizErr) console.warn('Quiz attempts query issue:', quizErr);
+      setQuizAttempts(dbQuizzes || []);
+
+      // 4. Fetch all certificates
+      const { data: dbCertificates, error: certErr } = await supabaseAdmin
+        .from('certificates')
+        .select('*')
+        .order('issue_date', { ascending: false });
+
+      if (certErr) console.warn('Certificates query issue:', certErr);
+      setCertificates(dbCertificates || []);
+
+      // 5. Fetch all modules
+      const { data: dbModules } = await supabaseAdmin
+        .from('modules')
+        .select('id, course_id, title, duration_minutes, has_quiz');
+      setModules(dbModules || []);
 
       // Total students count
       const totalEnrolled = rawEnrollments.length;
       setTotalStudents(totalEnrolled);
 
       // Calculate Total Revenue as SUM of amount_paid from all enrollment records
-      // This reflects actual money received, not a theoretical calculation
       const calculatedRevenue = rawEnrollments.reduce((acc: number, enr: any) => {
         return acc + (Number(enr.amount_paid) || 0);
       }, 0);
 
       setTotalEarnings(calculatedRevenue);
 
-      // 3. Fetch all reviews and compute live average rating
+      // 6. Fetch all reviews and compute live average rating
       const { data: dbReviews } = await supabaseAdmin
         .from('course_reviews')
         .select('*')
@@ -1272,15 +1378,7 @@ function InstructorDashboardContent() {
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            c.is_published
-                              ? 'bg-black text-white dark:bg-white dark:text-black'
-                              : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
-                          }`}
-                        >
-                          {c.is_published ? 'Live Published' : 'Draft'}
-                        </span>
+                        <CourseStatusBadge isPublished={c.is_published} tooltipPosition="bottom" />
                         <span className="text-xs font-mono font-bold">
                           {c.price && c.price > 0 ? `${getCurrencySymbol(c.currency || 'INR')} ${c.price}` : 'FREE'}
                         </span>
@@ -1406,16 +1504,8 @@ function InstructorDashboardContent() {
                       alt="Thumbnail"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute top-3 left-3">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          c.is_published
-                            ? 'bg-black text-white dark:bg-white dark:text-black shadow'
-                            : 'bg-zinc-800 text-zinc-300 border border-zinc-600'
-                        }`}
-                      >
-                        {c.is_published ? 'Published' : 'Draft'}
-                      </span>
+                    <div className="absolute top-3 left-3 z-10">
+                      <CourseStatusBadge isPublished={c.is_published} tooltipPosition="bottom" />
                     </div>
 
                     <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur text-white text-xs font-mono font-bold">
@@ -1444,30 +1534,37 @@ function InstructorDashboardContent() {
                   <div className="p-4 pt-0 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between gap-2 mt-auto">
                     <Link
                       href={`/instructor/course/create?editCourseId=${c.id}`}
-                      className="flex-1 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black font-bold text-xs text-center hover:opacity-90 transition"
+                      className="flex-1 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black font-bold text-xs text-center hover:opacity-90 transition shadow-sm"
                     >
                       Continue Editing
                     </Link>
 
                     <Link
                       href={`/courses/${c.id}`}
-                      className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-black dark:hover:text-white"
-                      title="Preview Course"
+                      className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-black dark:hover:text-white transition hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                      title="Preview Course as Student"
                     >
                       <Eye className="w-4 h-4" />
                     </Link>
 
                     <button
                       onClick={() => handleTogglePublish(c)}
-                      className={`p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 ${c.is_published ? 'text-zinc-800 dark:text-zinc-200' : 'text-black dark:text-white font-bold'}`}
-                      title={c.is_published ? 'Unpublish Course' : 'Publish Course Live'}
+                      className={`relative group/pub p-2 rounded-xl border transition-all cursor-pointer ${
+                        c.is_published
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white shadow-emerald-500/10'
+                          : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white ring-2 ring-amber-500/20 dark:ring-amber-500/30 shadow-amber-500/10 animate-pulse'
+                      }`}
+                      title={c.is_published ? 'Live in Catalog (Click to Unpublish)' : 'Unpublished Draft (Click to Publish Live)'}
                     >
                       <Globe className="w-4 h-4" />
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-zinc-950 text-white text-[10px] rounded-lg whitespace-nowrap opacity-0 group-hover/pub:opacity-100 transition-all pointer-events-none z-30 shadow-xl border border-zinc-800 font-bold">
+                        {c.is_published ? 'Click to Unpublish' : 'Click to Publish Live 🚀'}
+                      </span>
                     </button>
 
                     <button
                       onClick={() => handleDeleteCourse(c.id)}
-                      className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500"
+                      className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-500 transition hover:bg-red-500/10 hover:border-red-500/30"
                       title="Delete Course"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1489,205 +1586,741 @@ function InstructorDashboardContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 4: ANALYTICS */}
+        {/* TAB 4: ANALYTICS                                                         */}
         {/* ========================================================================= */}
-        {activeTab === 'analytics' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="pb-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h1 className="text-2xl font-black">Curriculum & Student Analytics</h1>
-              <p className="text-xs text-zinc-500 mt-1">Real-time completion, quiz scores, and student drop-off metrics.</p>
-            </div>
+        {activeTab === 'analytics' && (() => {
+          const totalEnrolled = enrollments.length;
+          const completedEnrollments = enrollments.filter(
+            (e) => e.status === 'completed' || Number(e.progress_percent) >= 100
+          ).length;
+          const completionRate = totalEnrolled > 0
+            ? ((completedEnrollments / totalEnrolled) * 100).toFixed(1)
+            : '0.0';
+          const avgProgress = totalEnrolled > 0
+            ? (enrollments.reduce((sum, e) => sum + (Number(e.progress_percent) || 0), 0) / totalEnrolled).toFixed(1)
+            : '0.0';
+          const totalQuizzes = quizAttempts.length;
+          const passedQuizzes = quizAttempts.filter((q) => q.is_passed).length;
+          const quizPassRate = totalQuizzes > 0
+            ? ((passedQuizzes / totalQuizzes) * 100).toFixed(1)
+            : '0.0';
+          const avgQuizScore = totalQuizzes > 0
+            ? (quizAttempts.reduce((sum, q) => sum + (Number(q.score_percent) || 0), 0) / totalQuizzes).toFixed(1)
+            : '0.0';
+          const totalCertificates = certificates.length;
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="text-xs font-bold uppercase text-zinc-400">Course Completion Rate</div>
-                <div className="text-3xl font-black font-mono mt-2 text-black dark:text-white">76.4%</div>
-                <p className="text-xs text-zinc-500 mt-1">Average across all telecom modules</p>
-              </div>
+          // Engagement brackets
+          const bracket0to25 = enrollments.filter((e) => Number(e.progress_percent) <= 25).length;
+          const bracket26to50 = enrollments.filter((e) => Number(e.progress_percent) > 25 && Number(e.progress_percent) <= 50).length;
+          const bracket51to75 = enrollments.filter((e) => Number(e.progress_percent) > 50 && Number(e.progress_percent) <= 75).length;
+          const bracket76to99 = enrollments.filter((e) => Number(e.progress_percent) > 75 && Number(e.progress_percent) < 100).length;
+          const bracket100 = enrollments.filter((e) => Number(e.progress_percent) >= 100 || e.status === 'completed').length;
 
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="text-xs font-bold uppercase text-zinc-400">First-Time Quiz Pass Rate</div>
-                <div className="text-3xl font-black font-mono mt-2 text-black dark:text-white">88.2%</div>
-                <p className="text-xs text-zinc-500 mt-1">Average score threshold: 80%</p>
-              </div>
-
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="text-xs font-bold uppercase text-zinc-400">Certificates Awarded</div>
-                <div className="text-3xl font-black font-mono mt-2 text-black dark:text-white">114</div>
-                <p className="text-xs text-zinc-500 mt-1">Verified cryptographic credentials</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 5: STUDENTS */}
-        {/* ========================================================================= */}
-        {activeTab === 'students' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="pb-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h1 className="text-2xl font-black">Enrolled Students Roster</h1>
-              <p className="text-xs text-zinc-500 mt-1">Track individual learner progress, completion states, and quiz scores.</p>
-            </div>
-
-            <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 text-left font-bold uppercase tracking-wider">
-                    <th className="p-4">Student</th>
-                    <th className="p-4">Enrolled Course</th>
-                    <th className="p-4">Progress</th>
-                    <th className="p-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                  {[
-                    { name: 'Student Learner', email: 'student@signalhub.app', course: 'Mobile Network Fundamentals', progress: '85%', status: 'Active' },
-                    { name: 'Ananya Roy', email: 'ananya@telecom.org', course: '5G Service-Based Architecture', progress: '100%', status: 'Completed (Cert Awarded)' },
-                    { name: 'Rajesh Nair', email: 'rajesh@cloud.net', course: 'Signal Processing & DSP Filters', progress: '45%', status: 'Active' },
-                  ].map((s, idx) => (
-                    <tr key={idx}>
-                      <td className="p-4 font-bold">
-                        <div>{s.name}</div>
-                        <div className="text-[10px] text-zinc-400 font-mono">{s.email}</div>
-                      </td>
-                      <td className="p-4">{s.course}</td>
-                      <td className="p-4 font-mono font-bold text-black dark:text-white">{s.progress}</td>
-                      <td className="p-4 font-bold text-black dark:text-white">{s.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 6: EARNINGS */}
-        {/* ========================================================================= */}
-        {activeTab === 'earnings' && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight font-sans">
-                  Revenue & Earnings Breakdown
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-                  Dynamic calculation based on total enrolled students multiplied by the price of each course.
-                </p>
-              </div>
-
-              <div className="px-4 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black font-mono font-black text-sm uppercase tracking-wider shadow-sm">
-                Total Revenue: ₹{totalEarnings.toLocaleString()}
-              </div>
-            </div>
-
-            {/* Top Metric Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="flex items-center justify-between mb-2 text-zinc-400">
-                  <span className="text-xs font-bold uppercase tracking-wider">Gross Calculated Revenue</span>
-                  <DollarSign className="w-4 h-4 text-black dark:text-white" />
+          return (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
+                    <BarChart2 className="w-7 h-7" />
+                    Curriculum & Student Analytics
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                    Live telemetry aggregated directly from Supabase student progress, quiz submissions, and certificate records.
+                  </p>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
-                  ₹{totalEarnings.toLocaleString()}
+                <div className={`px-4 py-2 rounded-xl border text-xs font-mono font-bold ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
+                  Database Synced • {totalEnrolled} Learner{totalEnrolled !== 1 ? 's' : ''}
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1 font-mono">
-                  Σ amount_paid per enrollment record
-                </p>
               </div>
 
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="flex items-center justify-between mb-2 text-zinc-400">
-                  <span className="text-xs font-bold uppercase tracking-wider">Total Enrolled Students</span>
-                  <Users className="w-4 h-4 text-black dark:text-white" />
+              {/* 4 Core Metric KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between text-zinc-400 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider">Completion Rate</span>
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-3xl font-black font-mono text-black dark:text-white mt-1">
+                    {completionRate}%
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    {completedEnrollments} of {totalEnrolled} finished full course
+                  </p>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
-                  {totalStudents}
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between text-zinc-400 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider">Average Progress</span>
+                    <Activity className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div className="text-3xl font-black font-mono text-black dark:text-white mt-1">
+                    {avgProgress}%
+                  </div>
+                  <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div
+                      className="bg-sky-500 h-full rounded-full transition-all"
+                      style={{ width: `${Math.min(Number(avgProgress) || 0, 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  Across {courses.length} active courses
-                </p>
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between text-zinc-400 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider">Quiz Pass Rate</span>
+                    <Award className="w-4 h-4 text-amber-500" />
+                  </div>
+                  <div className="text-3xl font-black font-mono text-black dark:text-white mt-1">
+                    {quizPassRate}%
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    {passedQuizzes}/{totalQuizzes} attempts (Avg score: {avgQuizScore}%)
+                  </p>
+                </div>
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between text-zinc-400 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider">Certificates Awarded</span>
+                    <GraduationCap className="w-4 h-4 text-purple-500" />
+                  </div>
+                  <div className="text-3xl font-black font-mono text-black dark:text-white mt-1">
+                    {totalCertificates}
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Cryptographically hashed credentials
+                  </p>
+                </div>
               </div>
 
-              <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
-                <div className="flex items-center justify-between mb-2 text-zinc-400">
-                  <span className="text-xs font-bold uppercase tracking-wider">Average Revenue / Course</span>
-                  <TrendingUp className="w-4 h-4 text-black dark:text-white" />
+              {/* Learner Progress Distribution Funnel */}
+              <div className={`p-6 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                <h2 className="text-base font-black tracking-tight mb-1">Learner Retention & Engagement Milestones</h2>
+                <p className="text-xs text-zinc-500 mb-5">Distribution of all {totalEnrolled} enrolled learners across learning progress brackets.</p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                        Completed & Graduated (100%)
+                      </span>
+                      <span className="font-mono">{bracket100} student{bracket100 !== 1 ? 's' : ''} ({totalEnrolled > 0 ? ((bracket100 / totalEnrolled) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${totalEnrolled > 0 ? (bracket100 / totalEnrolled) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block" />
+                        Final Stages (76% - 99%)
+                      </span>
+                      <span className="font-mono">{bracket76to99} student{bracket76to99 !== 1 ? 's' : ''} ({totalEnrolled > 0 ? ((bracket76to99 / totalEnrolled) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-sky-500 h-full rounded-full transition-all" style={{ width: `${totalEnrolled > 0 ? (bracket76to99 / totalEnrolled) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" />
+                        Intermediate Phase (51% - 75%)
+                      </span>
+                      <span className="font-mono">{bracket51to75} student{bracket51to75 !== 1 ? 's' : ''} ({totalEnrolled > 0 ? ((bracket51to75 / totalEnrolled) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-indigo-500 h-full rounded-full transition-all" style={{ width: `${totalEnrolled > 0 ? (bracket51to75 / totalEnrolled) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                        Early Progress (26% - 50%)
+                      </span>
+                      <span className="font-mono">{bracket26to50} student{bracket26to50 !== 1 ? 's' : ''} ({totalEnrolled > 0 ? ((bracket26to50 / totalEnrolled) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: `${totalEnrolled > 0 ? (bracket26to50 / totalEnrolled) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-zinc-400 inline-block" />
+                        Getting Started (0% - 25%)
+                      </span>
+                      <span className="font-mono">{bracket0to25} student{bracket0to25 !== 1 ? 's' : ''} ({totalEnrolled > 0 ? ((bracket0to25 / totalEnrolled) * 100).toFixed(0) : 0}%)</span>
+                    </div>
+                    <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                      <div className="bg-zinc-400 h-full rounded-full transition-all" style={{ width: `${totalEnrolled > 0 ? (bracket0to25 / totalEnrolled) * 100 : 0}%` }} />
+                    </div>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
-                  ₹{courses.length > 0 ? Math.round(totalEarnings / courses.length).toLocaleString() : 0}
+              </div>
+
+              {/* Course-by-Course Curriculum & Performance Matrix */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black tracking-tight">Course Curriculum & Performance Breakdown</h2>
+                  <span className="text-xs text-zinc-400 font-mono">{courses.length} courses registered</span>
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  Per authored course
-                </p>
-              </div>
-            </div>
 
-            {/* Course Revenue Breakdown Table */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-black tracking-tight">Course Revenue Calculation Table</h2>
-                <span className="text-xs text-zinc-400 font-mono">Formula: Students × Price = Total</span>
-              </div>
-
-              <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 text-left font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
-                      <th className="p-4">Course Name & Details</th>
-                      <th className="p-4">Course Price</th>
-                      <th className="p-4">Total Students Enrolled</th>
-                      <th className="p-4">Calculation Formula</th>
-                      <th className="p-4 text-right">Total Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    {courses.map((course) => {
-                      const courseEnrollments = enrollments.filter((e) => e.course_id === course.id);
-                      const count = courseEnrollments.length;
-                      const price = Number(course.price) || 0;
-                      // Use actual amount_paid from each enrollment (real revenue)
-                      const subtotal = courseEnrollments.reduce((acc: number, e: any) => acc + (Number(e.amount_paid) || 0), 0);
-
-                      return (
-                        <tr key={course.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
-                          <td className="p-4 font-bold">
-                            <div className="text-sm font-black text-black dark:text-white line-clamp-1">{course.title}</div>
-                            <div className="text-[10px] font-mono text-zinc-400 uppercase mt-0.5">
-                              {course.category || 'Telecom'} • {course.is_published ? 'Published' : 'Draft'}
-                            </div>
-                          </td>
-                          <td className="p-4 font-mono font-bold text-black dark:text-white">
-                            {price > 0 ? `₹${price.toLocaleString()}` : 'FREE (₹0)'}
-                          </td>
-                          <td className="p-4 font-mono font-bold text-black dark:text-white">
-                            {count > 0 ? `${count} students` : 'No enrollments yet'}
-                          </td>
-                          <td className="p-4 font-mono text-zinc-500">
-                            {count > 0 ? `Σ amount_paid = ₹${subtotal.toLocaleString()}` : '—'}
-                          </td>
-                          <td className="p-4 font-mono font-black text-black dark:text-white text-right text-sm">
-                            ₹{subtotal.toLocaleString()}
-                          </td>
+                <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
+                          <th className="p-4">Course Name & Category</th>
+                          <th className="p-4">Curriculum Units</th>
+                          <th className="p-4">Enrolled Students</th>
+                          <th className="p-4">Avg Learner Progress</th>
+                          <th className="p-4">Quiz Passes</th>
+                          <th className="p-4">Certs Awarded</th>
+                          <th className="p-4 text-right">Actions</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/80 font-black">
-                      <td className="p-4 text-black dark:text-white uppercase font-sans">Total Across All Courses</td>
-                      <td className="p-4 font-mono text-zinc-500">—</td>
-                      <td className="p-4 font-mono text-black dark:text-white">{totalStudents} students</td>
-                      <td className="p-4 font-mono text-zinc-500 font-normal">Sum of (Students × Price)</td>
-                      <td className="p-4 font-mono text-black dark:text-white text-right text-base">₹{totalEarnings.toLocaleString()}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                        {courses.map((c) => {
+                          const courseEnrollments = enrollments.filter((e) => e.course_id === c.id);
+                          const courseStudentsCount = courseEnrollments.length;
+                          const courseAvgProg = courseStudentsCount > 0
+                            ? (courseEnrollments.reduce((sum, e) => sum + (Number(e.progress_percent) || 0), 0) / courseStudentsCount).toFixed(0)
+                            : '0';
+                          const courseQuizzes = quizAttempts.filter((q) => q.course_id === c.id);
+                          const courseQuizzesPassed = courseQuizzes.filter((q) => q.is_passed).length;
+                          const courseCerts = certificates.filter((cert) => cert.course_id === c.id).length;
+                          const courseModulesCount = modules.filter((m) => m.course_id === c.id).length || c.modules_count || 0;
+
+                          return (
+                            <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
+                              <td className="p-4 font-bold max-w-xs">
+                                <div className="text-sm font-black text-black dark:text-white line-clamp-1">{c.title}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                                    {c.category || 'Telecom'}
+                                  </span>
+                                  <CourseStatusBadge isPublished={c.is_published} tooltipPosition="top" />
+                                </div>
+                              </td>
+                              <td className="p-4 font-mono font-bold text-zinc-700 dark:text-zinc-300">
+                                {courseModulesCount} Modules
+                              </td>
+                              <td className="p-4 font-mono font-bold text-black dark:text-white">
+                                {courseStudentsCount > 0 ? `${courseStudentsCount} students` : '0'}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className="bg-emerald-500 h-full rounded-full"
+                                      style={{ width: `${Math.min(Number(courseAvgProg) || 0, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-mono font-bold">{courseAvgProg}%</span>
+                                </div>
+                              </td>
+                              <td className="p-4 font-mono">
+                                {courseQuizzes.length > 0
+                                  ? `${courseQuizzesPassed} / ${courseQuizzes.length} passed`
+                                  : '0 attempts'}
+                              </td>
+                              <td className="p-4 font-mono font-bold text-purple-600 dark:text-purple-400">
+                                {courseCerts} cert{courseCerts !== 1 ? 's' : ''}
+                              </td>
+                              <td className="p-4 text-right">
+                                <Link
+                                  href={`/courses/${c.id}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-500 hover:text-black dark:hover:text-white"
+                                >
+                                  <span>View</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: ENROLLED STUDENTS ROSTER                                           */}
+        {/* ========================================================================= */}
+        {activeTab === 'students' && (() => {
+          // Filter enrolled students dynamically
+          const filteredEnrollments = enrollments.filter((enr) => {
+            const course = courses.find((c) => c.id === enr.course_id);
+            const studentName = enr.student_name || 'Anonymous Learner';
+            const studentEmail = enr.student_email || '';
+            const courseTitle = course?.title || enr.course_title || '';
+            
+            const matchesSearch = !studentSearchTerm ||
+              studentName.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+              studentEmail.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+              courseTitle.toLowerCase().includes(studentSearchTerm.toLowerCase());
+
+            const matchesCourse = studentCourseFilter === 'all' || enr.course_id === studentCourseFilter;
+            const matchesStatus = studentStatusFilter === 'all' || enr.status === studentStatusFilter;
+
+            return matchesSearch && matchesCourse && matchesStatus;
+          });
+
+          return (
+            <div className="space-y-6 animate-in fade-in">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
+                    <Users className="w-7 h-7" />
+                    Enrolled Students Roster
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                    Real-time enrollment directory, learner completion status, and payment records fetched from database.
+                  </p>
+                </div>
+
+                <div className={`px-4 py-2.5 rounded-xl border font-mono font-black text-sm ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
+                  {filteredEnrollments.length} of {enrollments.length} Student{enrollments.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              {/* Filter Controls Bar */}
+              <div className={`p-4 rounded-2xl border flex flex-col md:flex-row gap-3 items-center justify-between ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                {/* Search input */}
+                <div className="relative w-full md:w-80">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={studentSearchTerm}
+                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                    placeholder="Search by student name, email, or course..."
+                    className={`w-full pl-10 pr-4 py-2 text-xs rounded-xl border outline-none transition ${
+                      isLight ? 'bg-zinc-50 border-zinc-200 focus:border-black' : 'bg-zinc-900 border-zinc-800 focus:border-white'
+                    }`}
+                  />
+                </div>
+
+                {/* Dropdown Filters */}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className="flex items-center gap-1.5 w-full md:w-auto">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Course:</span>
+                    <select
+                      value={studentCourseFilter}
+                      onChange={(e) => setStudentCourseFilter(e.target.value)}
+                      className={`text-xs px-3 py-2 rounded-xl border outline-none w-full md:w-48 ${
+                        isLight ? 'bg-zinc-50 border-zinc-200 text-black' : 'bg-zinc-900 border-zinc-800 text-white'
+                      }`}
+                    >
+                      <option value="all">All Courses ({courses.length})</option>
+                      {courses.map((c) => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 w-full md:w-auto">
+                    <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Status:</span>
+                    <select
+                      value={studentStatusFilter}
+                      onChange={(e) => setStudentStatusFilter(e.target.value)}
+                      className={`text-xs px-3 py-2 rounded-xl border outline-none ${
+                        isLight ? 'bg-zinc-50 border-zinc-200 text-black' : 'bg-zinc-900 border-zinc-800 text-white'
+                      }`}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Students Roster Table */}
+              <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                {filteredEnrollments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
+                          <th className="p-4">Student</th>
+                          <th className="p-4">Enrolled Course</th>
+                          <th className="p-4">Progress</th>
+                          <th className="p-4">Payment Info</th>
+                          <th className="p-4">Status</th>
+                          <th className="p-4">Enrolled Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                        {filteredEnrollments.map((enr, idx) => {
+                          const course = courses.find((c) => c.id === enr.course_id);
+                          const studentName = enr.student_name || 'Anonymous Student';
+                          const studentEmail = enr.student_email || 'student@signalhub.app';
+                          const progress = Number(enr.progress_percent) || 0;
+                          const amountPaid = Number(enr.amount_paid) || 0;
+                          const enrolledDate = enr.enrolled_at
+                            ? new Date(enr.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : 'Recently';
+
+                          const initials = studentName
+                            .split(' ')
+                            .map((p: string) => p[0])
+                            .slice(0, 2)
+                            .join('')
+                            .toUpperCase();
+
+                          return (
+                            <tr key={enr.id || idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
+                              {/* Student Info */}
+                              <td className="p-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs font-mono shrink-0 ${
+                                    isLight ? 'bg-zinc-200 text-zinc-800' : 'bg-zinc-800 text-zinc-200'
+                                  }`}>
+                                    {initials || 'ST'}
+                                  </div>
+                                  <div>
+                                    <div className="font-black text-black dark:text-white text-sm">{studentName}</div>
+                                    <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{studentEmail}</div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Course Title */}
+                              <td className="p-4 max-w-xs">
+                                <div className="font-bold text-black dark:text-white line-clamp-1">
+                                  {course?.title || enr.course_title || 'Telecom Engineering Course'}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 font-mono uppercase mt-0.5">
+                                  {course?.category || 'Telecom 5G'}
+                                </div>
+                              </td>
+
+                              {/* Progress */}
+                              <td className="p-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${progress >= 100 ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                                      style={{ width: `${Math.min(progress, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-mono font-bold text-xs">{progress.toFixed(0)}%</span>
+                                </div>
+                              </td>
+
+                              {/* Payment info */}
+                              <td className="p-4">
+                                <div className="font-mono font-bold text-black dark:text-white">
+                                  {amountPaid > 0 ? `₹${amountPaid.toLocaleString()}` : 'FREE (₹0)'}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 font-mono uppercase mt-0.5 flex items-center gap-1">
+                                  <span>{enr.payment_method || 'UPI_QR'}</span>
+                                  <span>•</span>
+                                  <span className={enr.payment_status === 'paid' ? 'text-emerald-500 font-bold' : 'text-zinc-400'}>
+                                    {enr.payment_status || 'free'}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="p-4">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  enr.status === 'completed' || progress >= 100
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    : enr.status === 'cancelled'
+                                    ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                                    : 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20'
+                                }`}>
+                                  {enr.status === 'completed' || progress >= 100 ? 'Completed' : enr.status || 'Active'}
+                                </span>
+                              </td>
+
+                              {/* Enrolled Date */}
+                              <td className="p-4 font-mono text-zinc-500 text-xs whitespace-nowrap">
+                                {enrolledDate}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-12 text-center space-y-3">
+                    <div className={`w-12 h-12 rounded-2xl mx-auto flex items-center justify-center ${isLight ? 'bg-zinc-100 text-zinc-400' : 'bg-zinc-900 text-zinc-500'}`}>
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-black text-black dark:text-white">No Enrolled Students Found</h3>
+                    <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                      {enrollments.length === 0
+                        ? 'Your courses are ready. Once students enroll from the catalog, their progress and real-time records will be listed here.'
+                        : 'No students matched your active filter. Try adjusting your search query or reset the filters.'}
+                    </p>
+                    {studentSearchTerm || studentCourseFilter !== 'all' || studentStatusFilter !== 'all' ? (
+                      <button
+                        onClick={() => {
+                          setStudentSearchTerm('');
+                          setStudentCourseFilter('all');
+                          setStudentStatusFilter('all');
+                        }}
+                        className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-wider hover:opacity-90 transition cursor-pointer"
+                      >
+                        Reset All Filters
+                      </button>
+                    ) : (
+                      <Link
+                        href="/courses"
+                        className="inline-block px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-wider hover:opacity-90 transition"
+                      >
+                        Preview Course Catalog →
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: REVENUE & EARNINGS BREAKDOWN                                       */}
+        {/* ========================================================================= */}
+        {activeTab === 'earnings' && (() => {
+          const totalPaidEnrollments = enrollments.filter((e) => (Number(e.amount_paid) || 0) > 0).length;
+          const totalFreeEnrollments = enrollments.filter((e) => (Number(e.amount_paid) || 0) === 0).length;
+          const avgPerStudent = totalStudents > 0 ? Math.round(totalEarnings / totalStudents) : 0;
+          const avgPerCourse = courses.length > 0 ? Math.round(totalEarnings / courses.length) : 0;
+
+          // Recent enrollment transactions from database
+          const recentTransactions = enrollments
+            .filter((e) => (Number(e.amount_paid) || 0) > 0 || e.payment_status === 'paid' || e.utr_number || e.transaction_ref)
+            .slice(0, 10);
+
+          return (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight font-sans flex items-center gap-2">
+                    <DollarSign className="w-7 h-7" />
+                    Revenue & Earnings Breakdown
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                    Live dynamic revenue calculated directly from database payment transactions and student enrollments.
+                  </p>
+                </div>
+
+                <div className="px-5 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-mono font-black text-sm uppercase tracking-wider shadow-md">
+                  Gross Revenue: ₹{totalEarnings.toLocaleString()}
+                </div>
+              </div>
+
+              {/* Top Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between mb-2 text-zinc-400">
+                    <span className="text-xs font-bold uppercase tracking-wider">Gross Revenue</span>
+                    <DollarSign className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
+                    ₹{totalEarnings.toLocaleString()}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1 font-mono">
+                    Σ amount_paid in Supabase
+                  </p>
+                </div>
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between mb-2 text-zinc-400">
+                    <span className="text-xs font-bold uppercase tracking-wider">Paid Enrollments</span>
+                    <CreditCard className="w-4 h-4 text-sky-500" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
+                    {totalPaidEnrollments}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    + {totalFreeEnrollments} free enrollments
+                  </p>
+                </div>
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between mb-2 text-zinc-400">
+                    <span className="text-xs font-bold uppercase tracking-wider">Avg Revenue / Course</span>
+                    <TrendingUp className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
+                    ₹{avgPerCourse.toLocaleString()}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Across {courses.length} courses
+                  </p>
+                </div>
+
+                <div className={`p-5 rounded-2xl border ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="flex items-center justify-between mb-2 text-zinc-400">
+                    <span className="text-xs font-bold uppercase tracking-wider">Avg Revenue / Student</span>
+                    <Users className="w-4 h-4 text-purple-500" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black font-mono text-black dark:text-white">
+                    ₹{avgPerStudent.toLocaleString()}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Per registered student
+                  </p>
+                </div>
+              </div>
+
+              {/* Course Revenue Breakdown Table */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black tracking-tight">Course Revenue Breakdown Matrix</h2>
+                  <span className="text-xs text-zinc-400 font-mono">Live DB Sync</span>
+                </div>
+
+                <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
+                          <th className="p-4">Course Name & Category</th>
+                          <th className="p-4">Course Price</th>
+                          <th className="p-4">Enrolled Students</th>
+                          <th className="p-4">Paid Students</th>
+                          <th className="p-4">Revenue Calculation</th>
+                          <th className="p-4 text-right">Total Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                        {courses.map((course) => {
+                          const courseEnrollments = enrollments.filter((e) => e.course_id === course.id);
+                          const totalCount = courseEnrollments.length;
+                          const paidCount = courseEnrollments.filter((e) => (Number(e.amount_paid) || 0) > 0).length;
+                          const price = Number(course.price) || 0;
+                          const subtotal = courseEnrollments.reduce((acc: number, e: any) => acc + (Number(e.amount_paid) || 0), 0);
+
+                          return (
+                            <tr key={course.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
+                              <td className="p-4 font-bold max-w-xs">
+                                <div className="text-sm font-black text-black dark:text-white line-clamp-1">{course.title}</div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                                    {course.category || 'Telecom'}
+                                  </span>
+                                  <CourseStatusBadge isPublished={course.is_published} tooltipPosition="top" />
+                                </div>
+                              </td>
+                              <td className="p-4 font-mono font-bold text-black dark:text-white">
+                                {price > 0 ? `₹${price.toLocaleString()}` : 'FREE (₹0)'}
+                              </td>
+                              <td className="p-4 font-mono font-bold text-black dark:text-white">
+                                {totalCount > 0 ? `${totalCount} students` : '0'}
+                              </td>
+                              <td className="p-4 font-mono text-zinc-600 dark:text-zinc-400">
+                                {paidCount} paid
+                              </td>
+                              <td className="p-4 font-mono text-zinc-500">
+                                {totalCount > 0 ? `Σ amount_paid` : '—'}
+                              </td>
+                              <td className="p-4 font-mono font-black text-black dark:text-white text-right text-sm">
+                                ₹{subtotal.toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/80 font-black">
+                          <td className="p-4 text-black dark:text-white uppercase font-sans">Total Across All Courses</td>
+                          <td className="p-4 font-mono text-zinc-500">—</td>
+                          <td className="p-4 font-mono text-black dark:text-white">{totalStudents} students</td>
+                          <td className="p-4 font-mono text-black dark:text-white">{totalPaidEnrollments} paid</td>
+                          <td className="p-4 font-mono text-zinc-500 font-normal">Sum of all enrollments</td>
+                          <td className="p-4 font-mono text-black dark:text-white text-right text-base">₹{totalEarnings.toLocaleString()}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment & Transactions Log */}
+              {recentTransactions.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-black tracking-tight">Recent Payment Transactions Log</h2>
+                    <span className="text-xs text-zinc-400 font-mono">{recentTransactions.length} recent records</span>
+                  </div>
+
+                  <div className={`rounded-2xl border overflow-hidden ${isLight ? 'bg-white border-zinc-200 shadow-sm' : 'bg-zinc-950 border-zinc-800'}`}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead>
+                          <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
+                            <th className="p-4">Reference / UTR</th>
+                            <th className="p-4">Student</th>
+                            <th className="p-4">Course</th>
+                            <th className="p-4">Method</th>
+                            <th className="p-4">Amount</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                          {recentTransactions.map((tx, idx) => {
+                            const course = courses.find((c) => c.id === tx.course_id);
+                            const amount = Number(tx.amount_paid) || 0;
+                            const ref = tx.utr_number || tx.transaction_ref || `TX-${tx.id ? tx.id.slice(0, 8) : String(idx)}`;
+                            const dateStr = tx.enrolled_at ? new Date(tx.enrolled_at).toLocaleDateString() : 'Recent';
+
+                            return (
+                              <tr key={tx.id || idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
+                                <td className="p-4 font-mono font-bold text-black dark:text-white">
+                                  {ref}
+                                </td>
+                                <td className="p-4">
+                                  <div className="font-bold text-black dark:text-white">{tx.student_name || 'Student Learner'}</div>
+                                  <div className="text-[10px] text-zinc-400 font-mono">{tx.student_email || 'student@signalhub.app'}</div>
+                                </td>
+                                <td className="p-4 max-w-xs font-bold text-zinc-700 dark:text-zinc-300 line-clamp-1">
+                                  {course?.title || tx.course_title || 'Telecom Course'}
+                                </td>
+                                <td className="p-4 font-mono uppercase text-zinc-500">
+                                  {tx.payment_method || 'UPI_QR'}
+                                </td>
+                                <td className="p-4 font-mono font-black text-black dark:text-white">
+                                  ₹{amount.toLocaleString()}
+                                </td>
+                                <td className="p-4">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    {tx.payment_status || 'Paid'}
+                                  </span>
+                                </td>
+                                <td className="p-4 font-mono text-zinc-400">
+                                  {dateStr}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ========================================================================= */}
         {/* TAB 7: STUDENT REVIEWS                                                    */}

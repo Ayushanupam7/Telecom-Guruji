@@ -81,9 +81,14 @@ export function Header({ }: HeaderProps) {
         <div className="flex items-center space-x-10">
           <Link href={dashboardPath} className="flex items-center space-x-3 group shrink-0">
             <img
-              src={isLight ? '/logo-light.png' : '/logo-dark.png'}
+              src="/logo-light.png"
               alt="Telecom Guruji Logo"
-              className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105 dark:hidden"
+            />
+            <img
+              src="/logo-dark.png"
+              alt="Telecom Guruji Logo"
+              className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105 hidden dark:block"
             />
             <span className={`text-xl sm:text-2xl font-black tracking-tight font-sans ${isLight ? 'text-black' : 'text-white'
               }`}>

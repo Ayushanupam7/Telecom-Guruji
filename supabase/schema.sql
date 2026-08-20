@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   age INTEGER DEFAULT 21,
   preferred_language TEXT DEFAULT 'en',
   avatar_url TEXT,
-  theme_preference TEXT DEFAULT 'light',
   password_hash TEXT,
   last_login_at TIMESTAMPTZ,
   last_logout_at TIMESTAMPTZ,
@@ -30,7 +29,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS username TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'en';
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS theme_preference TEXT DEFAULT 'light';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS search_history JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
@@ -39,7 +37,6 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_logout_at TIMESTAMPTZ;
 -- Quick Tools GIN Indexes on profiles.search_history
 CREATE INDEX IF NOT EXISTS idx_profiles_search_history_gin ON public.profiles USING GIN (search_history);
 CREATE INDEX IF NOT EXISTS idx_profiles_preferred_language ON public.profiles(preferred_language);
-CREATE INDEX IF NOT EXISTS idx_profiles_theme_preference ON public.profiles(theme_preference);
 
 -- ==============================================================================
 -- 2. COURSES TABLE

@@ -212,7 +212,7 @@ export default function ProfilePage() {
     showToast({
       type: 'success',
       title: 'Theme Preference Saved ✓',
-      message: `${targetTheme.toUpperCase()} mode saved & synced to your Supabase User Profile!`,
+      message: `${targetTheme.toUpperCase()} mode enabled and saved to your preferences!`,
     });
   };
 

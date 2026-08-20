@@ -131,7 +131,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               full_name: fullName,
               role: role,
               avatar_url: googleAvatar || undefined,
-              theme_preference: (typeof window !== 'undefined' ? localStorage.getItem('signalhub-theme') : 'light') || 'light',
               updated_at: new Date().toISOString(),
             }, { onConflict: 'email' });
           } else if (googleAvatar && !profile.avatar_url) {
@@ -281,7 +280,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 2. GUARANTEED INSERT: Upsert profile row into Supabase Database 'profiles' table via supabaseAdmin
     try {
       const passHash = typeof window !== 'undefined' ? btoa(password) : password;
-      const currentTheme = (typeof window !== 'undefined' ? localStorage.getItem('signalhub-theme') : 'light') || 'light';
 
       const profilePayload = {
         id: userId,
@@ -290,7 +288,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: role,
         preferred_language: language || 'en',
         password_hash: passHash,
-        theme_preference: currentTheme,
         created_at: new Date().toISOString(),
       };
 
@@ -370,23 +367,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         existingAvatarUrl = p.avatar_url;
         existingLang = p.preferred_language || 'en';
         existingAge = p.age || 21;
-
-        if (p.theme_preference === 'dark' || p.theme_preference === 'light') {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('signalhub-theme', p.theme_preference);
-            if (p.theme_preference === 'dark') {
-              document.documentElement.classList.remove('light', 'light-mode');
-              document.documentElement.classList.add('dark', 'dark-mode');
-              document.body.classList.remove('light', 'light-mode');
-              document.body.classList.add('dark', 'dark-mode');
-            } else {
-              document.documentElement.classList.remove('dark', 'dark-mode');
-              document.documentElement.classList.add('light', 'light-mode');
-              document.body.classList.remove('dark', 'dark-mode');
-              document.body.classList.add('light', 'light-mode');
-            }
-          }
-        }
       }
     } catch (e) {
       console.log('Profiles DB search notice:', e);
