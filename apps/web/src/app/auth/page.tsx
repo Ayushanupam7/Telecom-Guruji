@@ -29,6 +29,7 @@ export default function AuthPage() {
   const [signUpAge, setSignUpAge] = useState<number>(20);
   const [signUpRole, setSignUpRole] = useState<UserRole>('student');
   const [signUpLanguage, setSignUpLanguage] = useState('en');
+  const [signUpInstructorSecret, setSignUpInstructorSecret] = useState('');
 
   // Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -77,7 +78,7 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      await loginWithCredentials(signInEmail, signInPassword);
+      await loginWithCredentials(signInEmail, signInPassword, activeLoginTab);
       // Keep loading true while page transitions to avoid form flashing back
     } catch (err: any) {
       setLoading(false);
@@ -95,6 +96,11 @@ export default function AuthPage() {
       return;
     }
 
+    if (signUpRole === 'instructor' && !signUpInstructorSecret.trim()) {
+      setErrorMsg('Developer Instructor Secret Passcode is required to create an instructor account.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -105,6 +111,7 @@ export default function AuthPage() {
         age: signUpAge,
         role: signUpRole,
         language: signUpLanguage,
+        instructorSecretCode: signUpInstructorSecret,
       });
       // Keep loading true while page transitions
     } catch (err: any) {
@@ -527,10 +534,37 @@ export default function AuthPage() {
                         className="w-full px-2 py-2 rounded-xl text-xs border bg-zinc-50 border-zinc-300 text-black focus:border-black focus:ring-1 focus:ring-black font-bold disabled:opacity-60"
                       >
                         <option value="student">Student Learner</option>
-                        <option value="instructor">Course Instructor</option>
+                        <option value="instructor">Course Instructor 🎓</option>
                       </select>
                     </div>
                   </div>
+
+                  {/* 🔒 DEVELOPER INSTRUCTOR SECRET PASSKEY */}
+                  {signUpRole === 'instructor' && (
+                    <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-1.5 transition-all">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-black text-amber-900 flex items-center gap-1.5">
+                          <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                          Developer Secret Code *
+                        </label>
+                        <span className="text-[9px] font-mono font-bold text-amber-700 bg-amber-200/70 px-2 py-0.5 rounded-md">
+                          Dev Passkey Required
+                        </span>
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        disabled={loading}
+                        placeholder="Enter developer passcode (e.g. TG-INSTRUCTOR-2026)"
+                        value={signUpInstructorSecret}
+                        onChange={(e) => setSignUpInstructorSecret(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold border bg-white border-amber-300 text-black focus:border-black focus:ring-1 focus:ring-black disabled:opacity-60 placeholder:text-zinc-400 placeholder:font-sans"
+                      />
+                      <p className="text-[10px] text-zinc-600 font-medium leading-tight">
+                        🛡️ Instructor accounts require authorization from the platform developer (Passcode: <code className="font-mono font-bold text-amber-800">TG-INSTRUCTOR-2026</code>).
+                      </p>
+                    </div>
+                  )}
 
                   {errorMsg && (
                     <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-[11px] font-bold">

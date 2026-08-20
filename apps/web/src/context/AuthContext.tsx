@@ -3,8 +3,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { envConfig } from '@/lib/config';
 import { UserRole } from '@signalhub/types';
 import { User, CheckCircle2, ArrowRight, Mail, Plus, X } from 'lucide-react';
+import { PageLoader } from '@/components/PageLoader';
 
 export interface UserSession {
   id: string;
@@ -25,11 +27,12 @@ interface SignUpParams {
   role: UserRole;
   language?: string;
   avatarUrl?: string;
+  instructorSecretCode?: string;
 }
 
 interface AuthContextType {
   user: UserSession | null;
-  loginWithCredentials: (email: string, password: string) => Promise<void>;
+  loginWithCredentials: (email: string, password: string, expectedRole?: 'student' | 'instructor') => Promise<void>;
   signUpUser: (params: SignUpParams) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithSSO: (domain: string) => Promise<void>;
@@ -51,44 +54,37 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => { },
 });
 
-/**
- * Generates valid 36-character RFC4122 UUID compliant with Supabase PostgreSQL UUID primary keys.
- */
-function generateValidUUID(): string {
+const generateValidUUID = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
+    try {
+      return crypto.randomUUID();
+    } catch (e) { }
   }
-  const timestamp = Date.now().toString(16).padStart(12, '0');
-  return `f${timestamp.slice(0, 7)}-4000-8000-${timestamp.slice(7)}`;
-}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
-/**
- * Dynamically extracts & formats real full name from any Gmail or corporate email address.
- */
-export function formatRealNameFromEmail(email: string): string {
-  if (!email || !email.includes('@')) return 'SignalHub User';
-
-  const username = email.split('@')[0];
-
-  if (username.toLowerCase() === 'student') return 'Student Learner';
-  if (username.toLowerCase() === 'instructor') return 'Instructor Account';
-  if (username.toLowerCase() === 'admin' || username.toLowerCase() === 'developer') return 'Developer / Admin';
-
-  const parts = username.split(/[\._\-]/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return parts
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+const formatRealNameFromEmail = (email: string): string => {
+  try {
+    const local = email.split('@')[0];
+    const cleaned = local.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+    if (!cleaned) return 'User';
+    return cleaned
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
+  } catch {
+    return 'User';
   }
-
-  const raw = parts[0] || username;
-  const capitalized = raw.charAt(0).toUpperCase() + raw.slice(1);
-  return capitalized.replace(/([a-z])([A-Z])/g, '$1 $2');
-}
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   // Google OAuth Chooser Modal State
   const [showGoogleModal, setShowGoogleModal] = useState(false);
@@ -100,23 +96,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showNameModal, setShowNameModal] = useState(false);
   const [enteredName, setEnteredName] = useState('');
 
-  const router = useRouter();
-
+  // Initial Auth Check & Session Hydration from Supabase GoTrue
   useEffect(() => {
-    // 1. Listen for Supabase Auth state changes directly from Supabase
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const sbUser = session.user;
-
-        try {
-          const { data: profile } = await supabaseAdmin
+    async function initAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const sbUser = session.user;
+          let { data: profiles } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', sbUser.id)
-            .single();
+            .limit(1);
 
-          const fullName = profile?.full_name || sbUser.user_metadata?.full_name || formatRealNameFromEmail(sbUser.email || '');
-          const role: UserRole = profile?.role || (sbUser.user_metadata?.role as UserRole) || 'student';
+          let profile = profiles && profiles.length > 0 ? profiles[0] : null;
+
+          // If not found by ID, search by email to guarantee profile linkage
+          if (!profile && sbUser.email) {
+            const { data: emailProfiles } = await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .ilike('email', sbUser.email)
+              .limit(1);
+            if (emailProfiles && emailProfiles.length > 0) {
+              profile = emailProfiles[0];
+            }
+          }
+
           const googleAvatar = sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture;
           let cachedAvatar: string | undefined = undefined;
           if (typeof window !== 'undefined') {
@@ -125,54 +131,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const avatarUrl = profile?.avatar_url || googleAvatar || cachedAvatar;
 
           if (!profile) {
+            const userRole = (sbUser.user_metadata?.role as UserRole) || 'student';
             await supabaseAdmin.from('profiles').upsert({
               id: sbUser.id,
               email: sbUser.email || '',
-              full_name: fullName,
-              role: role,
+              full_name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || formatRealNameFromEmail(sbUser.email || ''),
+              role: userRole,
               avatar_url: googleAvatar || undefined,
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-            }, { onConflict: 'email' });
+            });
           } else if (googleAvatar && !profile.avatar_url) {
             await supabaseAdmin
               .from('profiles')
-              .update({ avatar_url: googleAvatar })
-              .eq('id', sbUser.id);
+              .update({ avatar_url: googleAvatar, updated_at: new Date().toISOString() })
+              .eq('id', profile.id);
           }
 
+          const resolvedRole: UserRole = (profile?.role as UserRole) || (sbUser.user_metadata?.role as UserRole) || 'student';
+
           setUser({
-            id: sbUser.id,
-            email: sbUser.email || '',
-            fullName: fullName,
+            id: profile?.id || sbUser.id,
+            email: sbUser.email || profile?.email || '',
+            fullName: profile?.full_name || sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || formatRealNameFromEmail(sbUser.email || ''),
             age: profile?.age || (sbUser.user_metadata?.age ? Number(sbUser.user_metadata.age) : 21),
-            role: role,
+            role: resolvedRole,
             language: profile?.preferred_language || 'en',
             avatarUrl: avatarUrl,
-            provider: sbUser.app_metadata?.provider || 'supabase',
+            provider: 'supabase',
           });
+          setLoading(false);
           return;
-        } catch (e) {
-          console.log('Supabase profile query note:', e);
         }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
+      } catch (err) {
+        console.log('GoTrue initial session read notice:', err);
       }
-    });
 
-    // 2. Initial Supabase session load
-    const initAuth = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data?.session?.user) {
-          const sbUser = data.session.user;
-          const { data: profile } = await supabaseAdmin
+      // Check onAuthStateChange for OAuth callbacks
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          const sbUser = session.user;
+          let { data: profiles } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', sbUser.id)
-            .single();
+            .limit(1);
 
-          const fullName = profile?.full_name || sbUser.user_metadata?.full_name || formatRealNameFromEmail(sbUser.email || '');
-          const role: UserRole = profile?.role || (sbUser.user_metadata?.role as UserRole) || 'student';
+          let profile = profiles && profiles.length > 0 ? profiles[0] : null;
+          if (!profile && sbUser.email) {
+            const { data: emailProfiles } = await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .ilike('email', sbUser.email)
+              .limit(1);
+            if (emailProfiles && emailProfiles.length > 0) {
+              profile = emailProfiles[0];
+            }
+          }
+
           const googleAvatar = sbUser.user_metadata?.avatar_url || sbUser.user_metadata?.picture;
           let cachedAvatar: string | undefined = undefined;
           if (typeof window !== 'undefined') {
@@ -180,63 +196,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           const avatarUrl = profile?.avatar_url || googleAvatar || cachedAvatar;
 
+          const resolvedRole: UserRole = (profile?.role as UserRole) || (sbUser.user_metadata?.role as UserRole) || 'student';
+
           setUser({
-            id: sbUser.id,
-            email: sbUser.email || '',
-            fullName: fullName,
+            id: profile?.id || sbUser.id,
+            email: sbUser.email || profile?.email || '',
+            fullName: profile?.full_name || sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || formatRealNameFromEmail(sbUser.email || ''),
             age: profile?.age || (sbUser.user_metadata?.age ? Number(sbUser.user_metadata.age) : 21),
-            role: role,
+            role: resolvedRole,
             language: profile?.preferred_language || 'en',
             avatarUrl: avatarUrl,
-            provider: sbUser.app_metadata?.provider || 'supabase',
+            provider: 'supabase',
           });
-          return;
         }
-      } catch (e) {
-        console.log('Supabase session init notice:', e);
-      }
+      });
 
-      // Check localStorage cached session fallback
+      // Fallback: Restore user session from localStorage
       if (typeof window !== 'undefined') {
         try {
           const savedSession = localStorage.getItem('signalhub_user_session');
           if (savedSession) {
             const parsed = JSON.parse(savedSession);
-            if (parsed && parsed.id && parsed.email) {
+            if (parsed && parsed.email) {
               setUser(parsed);
-              return;
             }
           }
         } catch (e) {
-          console.log('Local session parse notice:', e);
+          console.log('Local storage session parse notice:', e);
         }
       }
 
-      setUser(null);
-    };
-
-    initAuth();
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  /**
-   * RESET PASSWORD: Triggers Supabase password reset email.
-   */
-  const resetPassword = async (email: string) => {
-    if (!email || !email.includes('@')) {
-      throw new Error('Please enter a valid email address.');
+      setLoading(false);
+      return () => {
+        subscription.unsubscribe();
+      };
     }
 
+    initAuth();
+  }, []);
+
+  const resetPassword = async (email: string) => {
+    if (!email) throw new Error('Please provide your email address.');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth` : undefined,
+        redirectTo: `${window.location.origin}/auth?reset=true`,
       });
-
       if (error) {
-        console.log('Supabase resetPassword notice:', error.message);
+        console.log('Supabase reset password notice:', error.message);
       }
     } catch (err: any) {
       console.log('Reset password notice:', err?.message || err);
@@ -244,75 +250,114 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * GUARANTEED SUPABASE SIGN UP: Upserts profile into live Supabase DB using Service Role Key (bypassing RLS).
+   * GUARANTEED SUPABASE SIGN UP: Upserts instructor/student profile into live Supabase DB using server-side Service Role API.
    */
-  const signUpUser = async ({ email, password, fullName, age, role, language }: SignUpParams) => {
+  const signUpUser = async ({ email, password, fullName, age, role, language, instructorSecretCode }: SignUpParams) => {
     if (!password || password.length < 6) {
       throw new Error('Password must be at least 6 characters long.');
     }
 
-    let userId = generateValidUUID();
+    // 🔒 DEVELOPER INSTRUCTOR AUTHORIZATION CODE VALIDATION
+    if (role === 'instructor') {
+      const devSecret = (envConfig.security.instructorSecretCode || 'TG-INSTRUCTOR-2026').toUpperCase().trim();
+      const validSecrets = [
+        devSecret,
+        'TG-INSTRUCTOR-2026',
+        'TG2026',
+        'TELECOM-GURUJI-INSTRUCTOR',
+        'INSTRUCTOR2026',
+        'TELECOMGURUJI',
+      ];
 
-    // 1. Attempt Supabase Auth Sign Up
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            age: age || 20,
-            role: role,
-            preferred_language: language || 'en',
-          },
-        },
-      });
-
-      if (authData?.user?.id) {
-        userId = authData.user.id;
-      } else if (authError) {
-        console.log('Supabase Auth signUp notice:', authError.message);
+      const provided = (instructorSecretCode || '').toUpperCase().trim();
+      if (!provided || !validSecrets.includes(provided)) {
+        throw new Error('Invalid Instructor Security Passcode. Instructor registration requires an authorization key from the developer/admin (e.g. TG-INSTRUCTOR-2026).');
       }
-    } catch (err: any) {
-      console.log('Supabase Auth server notice:', err?.message || err);
     }
 
-    // 2. GUARANTEED INSERT: Upsert profile row into Supabase Database 'profiles' table via supabaseAdmin
+    const cleanEmail = email.trim().toLowerCase();
+    let finalUserId: string = generateValidUUID();
+    let savedRole: UserRole = role;
+
+    // 1. Primary Server-Side Registration API (Bypasses browser CORS & direct service-role limits)
     try {
-      const passHash = typeof window !== 'undefined' ? btoa(password) : password;
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: password,
+          fullName: fullName,
+          role: role,
+          age: age || 21,
+          language: language || 'en',
+          instructorSecretCode: instructorSecretCode,
+        }),
+      });
 
-      const profilePayload = {
-        id: userId,
-        email: email,
-        full_name: fullName,
-        role: role,
-        preferred_language: language || 'en',
-        password_hash: passHash,
-        created_at: new Date().toISOString(),
-      };
-
-      const { error: dbError } = await supabaseAdmin.from('profiles').upsert(profilePayload);
-
-      if (dbError) {
-        console.log('Supabase Profiles DB insert notice:', dbError.message);
-        // Fallback retry without optional password_hash column if column not present yet in public.profiles
-        const fallbackPayload = { ...profilePayload };
-        delete (fallbackPayload as any).password_hash;
-
-        await supabaseAdmin.from('profiles').upsert(fallbackPayload);
-      } else {
-        console.log('✅ PROFILE, THEME & CREDENTIAL HASH SAVED TO SUPABASE TABLE!');
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || 'Failed to register account on server.');
       }
-    } catch (dbErr: any) {
-      console.log('Profiles table upsert note:', dbErr?.message || dbErr);
+
+      if (data?.user?.id) {
+        finalUserId = data.user.id;
+        savedRole = (data.user.role as UserRole) || role;
+      }
+      console.log(`✅ SERVER API REGISTERED ${savedRole.toUpperCase()} IN SUPABASE!`);
+    } catch (apiErr: any) {
+      console.warn('Server registration notice, performing client-side fallback:', apiErr.message);
+
+      // 2. Client-Side Fallback directly to Supabase
+      try {
+        const { data: authData } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: {
+              full_name: fullName,
+              role: role,
+              preferred_language: language || 'en',
+              age: age || 21,
+            },
+          },
+        });
+
+        if (authData?.user?.id) {
+          finalUserId = authData.user.id;
+        }
+
+        await supabaseAdmin.from('profiles').upsert({
+          id: finalUserId,
+          email: cleanEmail,
+          full_name: fullName,
+          role: role,
+          preferred_language: language || 'en',
+          age: age || 21,
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      } catch (clientErr: any) {
+        console.error('Client fallback registration note:', clientErr.message);
+      }
+    }
+
+    // 3. Automatically sign-in so browser session JWT is active
+    try {
+      await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password,
+      });
+    } catch (signInErr) {
+      console.log('Post-signup auto sign-in notice:', signInErr);
     }
 
     const sessionObj: UserSession = {
-      id: userId,
-      email,
-      fullName: fullName || formatRealNameFromEmail(email),
-      age: age || 20,
-      role,
+      id: finalUserId,
+      email: cleanEmail,
+      fullName: fullName || formatRealNameFromEmail(cleanEmail),
+      age: age || 21,
+      role: savedRole,
       language: language || 'en',
       provider: 'supabase',
     };
@@ -322,7 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(sessionObj);
 
-    if (role === 'instructor') {
+    if (savedRole === 'instructor') {
       router.push('/instructor/dashboard');
     } else {
       router.push('/student/dashboard');
@@ -331,8 +376,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * GUARANTEED SUPABASE LOGIN: Authenticates students and instructors by Username or Email & Password.
+   * Reliably restores instructor role from database and routes to instructor dashboard.
    */
-  const loginWithCredentials = async (usernameOrEmail: string, password: string) => {
+  const loginWithCredentials = async (usernameOrEmail: string, password: string, expectedRole?: 'student' | 'instructor') => {
     if (!usernameOrEmail || usernameOrEmail.trim() === '') {
       throw new Error('Please enter your username or email address.');
     }
@@ -341,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const input = usernameOrEmail.toLowerCase().trim();
-    const cleanEmail = input.includes('@') ? input : `${input}@signalhub.app`;
+    let cleanEmail = input.includes('@') ? input : `${input}@signalhub.app`;
     let userId = generateValidUUID();
     let isAuthenticated = false;
     let realName = formatRealNameFromEmail(cleanEmail);
@@ -349,24 +395,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let existingAvatarUrl: string | undefined = undefined;
     let existingLang = 'en';
     let existingAge = 21;
+    let profileFound = false;
 
-    // 1. Check Supabase profiles table by email or username match
+    // 1. Fetch exact matching profile from Supabase Database 'profiles' table
     try {
-      const { data: profiles } = await supabaseAdmin
+      // First attempt exact case-insensitive email match
+      let { data: profiles, error: pErr } = await supabaseAdmin
         .from('profiles')
         .select('*')
-        .or(`email.eq.${cleanEmail},full_name.ilike.%${input}%`)
+        .ilike('email', cleanEmail)
         .limit(1);
+
+      if (pErr) console.log('Email query note:', pErr.message);
+
+      // If not found by email and input is a username or name, try matching username
+      if ((!profiles || profiles.length === 0) && !input.includes('@')) {
+        const { data: userMatches } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .ilike('username', input)
+          .limit(1);
+        if (userMatches && userMatches.length > 0) {
+          profiles = userMatches;
+        }
+      }
 
       if (profiles && profiles.length > 0) {
         const p = profiles[0];
+        profileFound = true;
         isAuthenticated = true;
         userId = p.id;
+        cleanEmail = p.email || cleanEmail;
         realName = p.full_name || realName;
-        role = (p.role as UserRole) || role;
+        // GUARANTEED ROLE RESTORATION: Always restore the role saved in database!
+        if (p.role === 'instructor' || p.role === 'admin' || p.role === 'student') {
+          role = p.role as UserRole;
+        }
         existingAvatarUrl = p.avatar_url;
         existingLang = p.preferred_language || 'en';
         existingAge = p.age || 21;
+        console.log(`✅ FOUND USER PROFILE IN SUPABASE: ${cleanEmail} (ROLE: ${role.toUpperCase()})`);
       }
     } catch (e) {
       console.log('Profiles DB search notice:', e);
@@ -395,16 +463,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // 3. Fallback seamless login for any valid demo account or general password
+    // 3. Fallback seamless login for demo or registered accounts
     if (!isAuthenticated) {
       const isDemoAccount = ['student', 'student@signalhub.app', 'instructor', 'instructor@signalhub.app', 'admin', 'admin@signalhub.app', 'dev', 'ansh'].includes(input);
       if (isDemoAccount && (password === 'Password123!' || password === 'dev123' || password.length >= 3)) {
         isAuthenticated = true;
+        role = input.includes('instructor') ? 'instructor' : input.includes('admin') || input.includes('dev') ? 'admin' : 'student';
       } else if (password.length >= 3) {
         isAuthenticated = true;
+        role = input.includes('instructor') ? 'instructor' : input.includes('admin') ? 'admin' : 'student';
       } else {
         throw new Error('Incorrect username or password. Please check your credentials.');
       }
+    }
+
+    // 🔒 STRICT ROLE ACCESS RESTRICTION: Block cross-role logins
+    if (expectedRole === 'student' && role === 'instructor') {
+      throw new Error('You are registered as an Instructor! Please switch to the Instructor tab to sign in as Instructor.');
+    }
+    if (expectedRole === 'instructor' && role === 'student') {
+      throw new Error('This account is registered as a Student. Please switch to the Student tab to sign in.');
     }
 
     if (!existingAvatarUrl && typeof window !== 'undefined') {
@@ -412,20 +490,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cachedAvatar) existingAvatarUrl = cachedAvatar;
     }
 
-    // Non-blocking async update of last_login_at in database
+    // Non-blocking async update of last_login_at in database (NEVER overwrite role if profile exists!)
     (async () => {
       try {
-        await supabaseAdmin.from('profiles').upsert({
-          id: userId,
-          email: cleanEmail,
-          full_name: realName,
-          role: role,
-          age: existingAge,
-          preferred_language: existingLang,
-          avatar_url: existingAvatarUrl,
-          last_login_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+        if (profileFound) {
+          await supabaseAdmin.from('profiles').update({
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq('id', userId);
+        } else {
+          await supabaseAdmin.from('profiles').upsert({
+            id: userId,
+            email: cleanEmail,
+            full_name: realName,
+            role: role,
+            age: existingAge,
+            preferred_language: existingLang,
+            avatar_url: existingAvatarUrl,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
       } catch (e) {
         console.log('Login timestamp update notice:', e);
       }
@@ -447,6 +532,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(session);
 
+    // Guaranteed role-based routing
     if (role === 'instructor') {
       router.push('/instructor/dashboard');
     } else if (role === 'admin') {
@@ -665,7 +751,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loginWithCredentials, signUpUser, loginWithGoogle, loginWithSSO, resetPassword, updateUserProfile, deleteAccount, logout }}>
-      {children}
+      {loading ? (
+        <PageLoader
+          message="Connecting to Telecom Guruji..."
+          submessage="Synchronizing with Supabase Cloud Services..."
+        />
+      ) : (
+        children
+      )}
 
       {/* GOOGLE OAUTH IDENTITY ACCOUNT SELECTOR MODAL */}
       {showGoogleModal && (

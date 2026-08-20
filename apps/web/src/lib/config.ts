@@ -35,6 +35,7 @@ export const envConfig = {
 
   security: {
     certificateSigningSecret: process.env.CERTIFICATE_SIGNING_SECRET || 'telecom_guruji_secure_cert_secret_2026',
+    instructorSecretCode: process.env.NEXT_PUBLIC_INSTRUCTOR_SECRET_CODE || 'TG-INSTRUCTOR-2026',
   },
 };
 

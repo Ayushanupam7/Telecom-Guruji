@@ -950,8 +950,9 @@ function InstructorDashboardContent() {
   const [reviewCourseFilter, setReviewCourseFilter] = useState<string>('all');
   const [reviewStarFilter, setReviewStarFilter] = useState<number>(0);
 
-  // Creation Modal
+  // Creation Modal & Studio Navigation Loading State
   const [showMethodModal, setShowMethodModal] = useState(false);
+  const [navigatingToStudio, setNavigatingToStudio] = useState(false);
 
   // Sync with tab in query params
   useEffect(() => {
@@ -960,12 +961,23 @@ function InstructorDashboardContent() {
     }
   }, [tabFromQuery]);
 
-  // Fetch real courses, enrollments, quizzes, certificates, and reviews from Supabase
+  // 🔒 ROLE GUARD: Redirect students away from instructor studio
+  useEffect(() => {
+    if (user && user.role === 'student') {
+      router.replace('/student/dashboard');
+    }
+  }, [user, router]);
+
+  // Fetch real courses, enrollments, quizzes, certificates, and reviews from Supabase with Multi-Instructor Isolation
   const loadDashboardData = async () => {
     try {
       setLoading(true);
 
-      // 1. Fetch courses
+      const currentInstructorId = user?.id;
+      const currentInstructorName = user?.fullName?.trim().toLowerCase();
+      const currentInstructorEmail = user?.email?.trim().toLowerCase();
+
+      // 1. Fetch courses and apply MULTI-INSTRUCTOR ISOLATION
       const { data: dbCourses, error: courseErr } = await supabaseAdmin
         .from('courses')
         .select('*')
@@ -973,10 +985,24 @@ function InstructorDashboardContent() {
 
       if (courseErr) console.warn('Course query issue:', courseErr);
 
-      const allCourses = (dbCourses && dbCourses.length > 0 ? dbCourses : [INITIAL_DEMO_COURSE]) as Course[];
-      setCourses(allCourses);
+      const allDbCourses = (dbCourses && dbCourses.length > 0 ? dbCourses : []) as Course[];
 
-      // 2. Fetch all enrollments (including amount_paid for revenue)
+      // STRICT UNIQUE INSTRUCTOR ISOLATION:
+      // Each instructor ONLY sees their own courses, their own students, and their own revenue.
+      const myCourses = allDbCourses.filter((c: any) => {
+        if (!c) return false;
+        // 1. Exact UUID match (Courses created by this specific instructor)
+        if (currentInstructorId && String(c.instructor_id) === String(currentInstructorId)) return true;
+        // 2. Demo Seed Account fallback only for default test login
+        const isDefaultDemoAccount = currentInstructorEmail === 'instructor@signalhub.app' && currentInstructorId === 'a1111111-1111-1111-1111-111111111111';
+        if (isDefaultDemoAccount && !c.instructor_id) return true;
+        return false;
+      });
+
+      setCourses(myCourses);
+      const myCourseIds = new Set(myCourses.map((c) => String(c.id)));
+
+      // 2. Fetch all enrollments restricted to THIS instructor's courses
       const { data: dbEnrollments, error: enrollErr } = await supabaseAdmin
         .from('enrollments')
         .select('*')
@@ -984,56 +1010,120 @@ function InstructorDashboardContent() {
 
       if (enrollErr) console.warn('Enrollment query issue:', enrollErr);
 
-      const rawEnrollments = dbEnrollments || [];
-      setEnrollments(rawEnrollments);
+      const rawEnrollments = (dbEnrollments || []).filter((e: any) => myCourseIds.has(String(e.course_id)));
 
-      // 3. Fetch all quiz attempts
+      // 3. Fetch quiz attempts restricted to THIS instructor's courses
       const { data: dbQuizzes, error: quizErr } = await supabaseAdmin
         .from('quiz_attempts')
         .select('*')
         .order('attempted_at', { ascending: false });
 
       if (quizErr) console.warn('Quiz attempts query issue:', quizErr);
-      setQuizAttempts(dbQuizzes || []);
+      const myQuizzes = (dbQuizzes || []).filter((q: any) => myCourseIds.has(String(q.course_id)));
+      setQuizAttempts(myQuizzes);
 
-      // 4. Fetch all certificates
+      // 4. Fetch certificates restricted to THIS instructor's courses
       const { data: dbCertificates, error: certErr } = await supabaseAdmin
         .from('certificates')
         .select('*')
         .order('issue_date', { ascending: false });
 
       if (certErr) console.warn('Certificates query issue:', certErr);
-      setCertificates(dbCertificates || []);
+      const myCerts = (dbCertificates || []).filter((cert: any) => myCourseIds.has(String(cert.course_id)));
+      setCertificates(myCerts);
 
-      // 5. Fetch all modules
+      // 5. Fetch modules restricted to THIS instructor's courses
       const { data: dbModules } = await supabaseAdmin
         .from('modules')
         .select('id, course_id, title, duration_minutes, has_quiz');
-      setModules(dbModules || []);
+      const myModules = (dbModules || []).filter((m: any) => myCourseIds.has(String(m.course_id)));
+      setModules(myModules);
 
-      // Total students count
-      const totalEnrolled = rawEnrollments.length;
+      // 5b. Fetch real slide progress records from Supabase DB
+      const { data: dbProgress } = await supabaseAdmin
+        .from('progress')
+        .select('*');
+      const myProgress = (dbProgress || []).filter((p: any) => myCourseIds.has(String(p.course_id)));
+
+      // DYNAMIC REAL-TIME STUDENT PROGRESS CALCULATION:
+      // Computes student progress % directly from Supabase progress slides, quizzes, and position indices
+      const enrichedEnrollments = rawEnrollments.map((e: any) => {
+        const courseIdStr = String(e.course_id);
+        const studentIdStr = String(e.student_id || '');
+        const studentEmailStr = String(e.student_email || '').toLowerCase();
+
+        const studentSlidesDone = myProgress.filter(
+          (p: any) =>
+            String(p.course_id) === courseIdStr &&
+            (p.is_completed === true || p.completed === true) &&
+            ((studentIdStr && String(p.student_id) === studentIdStr) ||
+             (studentEmailStr && String(p.student_email || '').toLowerCase() === studentEmailStr))
+        ).length;
+
+        const studentQuizzesDone = myQuizzes.filter(
+          (q: any) =>
+            String(q.course_id) === courseIdStr &&
+            q.is_passed === true &&
+            ((studentIdStr && String(q.student_id) === studentIdStr) ||
+             (studentEmailStr && String(q.student_email || '').toLowerCase() === studentEmailStr))
+        ).length;
+
+        const hasCert = myCerts.some(
+          (c: any) =>
+            String(c.course_id) === courseIdStr &&
+            ((studentIdStr && String(c.student_id) === studentIdStr) ||
+             (studentEmailStr && String(c.student_name || '').toLowerCase().includes(studentEmailStr)))
+        );
+
+        let calcPercent = 0;
+        if (hasCert || e.status === 'completed' || Number(e.progress_percent) >= 100) {
+          calcPercent = 100;
+        } else {
+          const storedPercent = Number(e.progress_percent) || 0;
+          const modIdx = Number(e.last_active_module_index) || Number(e.last_module_index) || 0;
+          const slideIdx = Number(e.last_active_slide_index) || Number(e.last_slide_index) || 0;
+          const positionPercent = Math.min(99, Math.round(((modIdx * 2 + slideIdx + 1) / 10) * 100));
+
+          const slidePercent = Math.min(100, Math.round((studentSlidesDone / 10) * 100));
+          const quizPercent = Math.min(100, Math.round((studentQuizzesDone / 4) * 100));
+          const blendedPercent = Math.round((slidePercent + quizPercent) / 2);
+
+          calcPercent = Math.max(storedPercent, positionPercent, blendedPercent);
+        }
+
+        return {
+          ...e,
+          progress_percent: calcPercent,
+        };
+      });
+
+      setEnrollments(enrichedEnrollments);
+
+      // Total students count for THIS instructor
+      const totalEnrolled = enrichedEnrollments.length;
       setTotalStudents(totalEnrolled);
 
-      // Calculate Total Revenue as SUM of amount_paid from all enrollment records
+      // Calculate Total Revenue as SUM of amount_paid from THIS instructor's enrollments
       const calculatedRevenue = rawEnrollments.reduce((acc: number, enr: any) => {
         return acc + (Number(enr.amount_paid) || 0);
       }, 0);
 
       setTotalEarnings(calculatedRevenue);
 
-      // 6. Fetch all reviews and compute live average rating
+      // 6. Fetch reviews restricted to THIS instructor's courses
       const { data: dbReviews } = await supabaseAdmin
         .from('course_reviews')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const allReviews = dbReviews || [];
+      const allReviews = (dbReviews || []).filter((r: any) => myCourseIds.has(String(r.course_id)));
       setReviews(allReviews);
 
       if (allReviews.length > 0) {
         const avg = allReviews.reduce((sum: number, r: any) => sum + (Number(r.rating) || 0), 0) / allReviews.length;
         setAverageRating(Math.round(avg * 10) / 10);
+      } else {
+        setAverageRating(0);
       }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -1044,9 +1134,10 @@ function InstructorDashboardContent() {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [user?.id, user?.email]);
 
   const handleSelectCreationMethod = (method: CourseCreationMethod, initialData?: any) => {
+    setNavigatingToStudio(true);
     setShowMethodModal(false);
     const params = new URLSearchParams();
     params.set('method', method);
@@ -1368,50 +1459,91 @@ function InstructorDashboardContent() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {courses.slice(0, 4).map((c) => (
-                  <div
-                    key={c.id}
-                    className={`p-5 rounded-2xl border flex flex-col justify-between transition ${
-                      isLight ? 'bg-white border-zinc-200 hover:border-zinc-300' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <CourseStatusBadge isPublished={c.is_published} tooltipPosition="bottom" />
-                        <span className="text-xs font-mono font-bold">
-                          {c.price && c.price > 0 ? `${getCurrencySymbol(c.currency || 'INR')} ${c.price}` : 'FREE'}
-                        </span>
-                      </div>
-
-                      <h3 className="text-base font-black tracking-tight line-clamp-1 mb-1">{c.title}</h3>
-                      <p className="text-xs text-zinc-500 line-clamp-2">{c.summary}</p>
-                    </div>
-
-                    <div className="pt-4 mt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                      <span className="text-xs text-zinc-400 font-medium">
-                        {c.modules?.length || c.modules_count || 5} Modules
-                      </span>
-
-                      <div className="flex items-center space-x-2">
-                        <Link
-                          href={`/courses/${c.id}`}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-black dark:hover:text-white transition"
-                          title="Preview as Student"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                        <Link
-                          href={`/instructor/course/create?editCourseId=${c.id}`}
-                          className="px-3 py-1.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-bold hover:opacity-90"
-                        >
-                          Edit Course
-                        </Link>
-                      </div>
-                    </div>
+              {courses.length === 0 ? (
+                <div className={`p-8 rounded-3xl border text-center space-y-3 ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900/50 border-zinc-800'}`}>
+                  <div className="w-12 h-12 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center mx-auto text-black dark:text-white">
+                    <BookOpen className="w-6 h-6" />
                   </div>
-                ))}
+                  <h3 className="text-base font-black">No Courses Created Yet</h3>
+                  <p className="text-xs text-zinc-500 max-w-md mx-auto">
+                    Your instructor studio is ready. Create and publish your first telecom course to start enrolling students, grading quizzes, and tracking revenue.
+                  </p>
+                  <button
+                    onClick={() => setShowMethodModal(true)}
+                    className="mt-2 px-5 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black font-black text-xs shadow-sm hover:opacity-90 transition active:scale-95 cursor-pointer"
+                  >
+                    + Create Your First Course
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {courses.slice(0, 4).map((c) => {
+                    const courseEnrollments = enrollments.filter((e) => e.course_id === c.id);
+                    const courseAvgProg = courseEnrollments.length > 0
+                      ? Math.round(courseEnrollments.reduce((sum, e) => sum + (Number(e.progress_percent) || 0), 0) / courseEnrollments.length)
+                      : 0;
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`p-5 rounded-2xl border flex flex-col justify-between transition ${
+                          isLight ? 'bg-white border-zinc-200 hover:border-zinc-300' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
+                        }`}
+                      >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <CourseStatusBadge isPublished={c.is_published} tooltipPosition="bottom" />
+                          <span className="text-xs font-mono font-bold">
+                            {c.price && c.price > 0 ? `${getCurrencySymbol(c.currency || 'INR')} ${c.price}` : 'FREE'}
+                          </span>
+                        </div>
+
+                        <h3 className="text-base font-black tracking-tight line-clamp-1 mb-1">{c.title}</h3>
+                        <p className="text-xs text-zinc-500 line-clamp-2">{c.summary}</p>
+
+                        {/* Course Progress Indicator */}
+                        <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/60">
+                          <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                            <span className="text-zinc-400">Avg Learner Progress</span>
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-black">
+                              {courseAvgProg}% <span className="text-zinc-400 font-normal">({courseEnrollments.length} enrolled)</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                              style={{ width: `${courseAvgProg}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+                        <span className="text-xs text-zinc-400 font-medium">
+                          {c.modules?.length || c.modules_count || 5} Modules
+                        </span>
+
+                        <div className="flex items-center space-x-2">
+                          <Link
+                            href={`/courses/${c.id}`}
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-black dark:hover:text-white transition"
+                            title="Preview as Student"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <Link
+                            href={`/instructor/course/create?editCourseId=${c.id}`}
+                            className="px-3 py-1.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-bold hover:opacity-90"
+                          >
+                            Edit Course
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            )}
             </div>
           </div>
         )}
@@ -1486,8 +1618,28 @@ function InstructorDashboardContent() {
             </div>
 
             {/* Courses Card Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCourses.map((c) => (
+            {filteredCourses.length === 0 ? (
+              <div className={`p-12 rounded-3xl border text-center space-y-4 ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                <div className="w-16 h-16 rounded-2xl bg-black/5 dark:bg-white/10 flex items-center justify-center mx-auto text-black dark:text-white">
+                  <BookOpen className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black">No Courses Found</h3>
+                  <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                    {searchTerm ? 'No courses match your search criteria.' : 'You have not created any courses yet. Start building your first telecom course.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMethodModal(true)}
+                  className="px-6 py-3 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-wider shadow-md hover:opacity-90 transition active:scale-95 cursor-pointer"
+                >
+                  + Create Your First Course
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCourses.map((c) => (
                 <div
                   key={c.id}
                   className={`rounded-3xl border overflow-hidden flex flex-col justify-between transition shadow-sm ${
@@ -1513,22 +1665,47 @@ function InstructorDashboardContent() {
                     </div>
                   </div>
 
-                  {/* Body Content */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-mono">
-                        {c.category || 'Telecom'}
-                      </span>
-                      <h3 className="text-base font-black tracking-tight line-clamp-2 mt-0.5">{c.title}</h3>
-                      <p className="text-xs text-zinc-500 line-clamp-2 mt-1.5">{c.summary}</p>
-                    </div>
+                    {/* Body Content */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-mono">
+                          {c.category || 'Telecom'}
+                        </span>
+                        <h3 className="text-base font-black tracking-tight line-clamp-2 mt-0.5">{c.title}</h3>
+                        <p className="text-xs text-zinc-500 line-clamp-2 mt-1.5">{c.summary}</p>
+                      </div>
 
-                    <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
-                      <span>{c.modules?.length || c.modules_count || 5} Modules</span>
-                      <span>•</span>
-                      <span>{c.course_duration || 90}m</span>
+                      {/* Student Progress Indicator on Course Card */}
+                      {(() => {
+                        const cardEnrollments = enrollments.filter((e) => e.course_id === c.id);
+                        const cardAvgProg = cardEnrollments.length > 0
+                          ? Math.round(cardEnrollments.reduce((sum, e) => sum + (Number(e.progress_percent) || 0), 0) / cardEnrollments.length)
+                          : 0;
+
+                        return (
+                          <div className="pt-2 pb-1 border-t border-zinc-100 dark:border-zinc-800/60 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold">
+                              <span className="text-zinc-400">Learner Progress</span>
+                              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-black">
+                                {cardAvgProg}% <span className="text-zinc-400 font-normal">({cardEnrollments.length} enrolled)</span>
+                              </span>
+                            </div>
+                            <div className="w-full bg-zinc-100 dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${cardAvgProg}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+                        <span>{c.modules?.length || c.modules_count || 5} Modules</span>
+                        <span>•</span>
+                        <span>{c.course_duration || 90}m</span>
+                      </div>
                     </div>
-                  </div>
 
                   {/* Footer Actions */}
                   <div className="p-4 pt-0 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between gap-2 mt-auto">
@@ -1573,6 +1750,7 @@ function InstructorDashboardContent() {
                 </div>
               ))}
             </div>
+          )}
           </div>
         )}
 
@@ -1956,6 +2134,7 @@ function InstructorDashboardContent() {
                         <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider bg-zinc-50/50 dark:bg-zinc-900/50">
                           <th className="p-4">Student</th>
                           <th className="p-4">Enrolled Course</th>
+                          <th className="p-4">Instructor</th>
                           <th className="p-4">Progress</th>
                           <th className="p-4">Payment Info</th>
                           <th className="p-4">Status</th>
@@ -1979,6 +2158,8 @@ function InstructorDashboardContent() {
                             .slice(0, 2)
                             .join('')
                             .toUpperCase();
+
+                          const instructorDisplayName = course?.trainer_name || user?.fullName || 'Dr. Ayush Sharma';
 
                           return (
                             <tr key={enr.id || idx} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition">
@@ -2004,6 +2185,16 @@ function InstructorDashboardContent() {
                                 </div>
                                 <div className="text-[10px] text-zinc-400 font-mono uppercase mt-0.5">
                                   {course?.category || 'Telecom 5G'}
+                                </div>
+                              </td>
+
+                              {/* Instructor Name */}
+                              <td className="p-4">
+                                <div className="font-bold text-black dark:text-white text-xs">
+                                  {instructorDisplayName}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 font-mono">
+                                  Course Lead
                                 </div>
                               </td>
 
@@ -2592,6 +2783,22 @@ function InstructorDashboardContent() {
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
       </div>
+
+      {/* Fullscreen Studio Launch Loader Overlay */}
+      {navigatingToStudio && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-xl text-white animate-in fade-in duration-200">
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="w-16 h-16 rounded-full border-4 border-sky-500/20 border-t-sky-500 animate-spin" />
+            <Sparkles className="w-6 h-6 text-sky-400 absolute animate-pulse" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2">
+            Launching Course Creator Studio...
+          </h2>
+          <p className="text-xs sm:text-sm text-zinc-400 text-center max-w-sm px-4">
+            Initializing modular curriculum workspace, AI copilot engine, and layout template.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

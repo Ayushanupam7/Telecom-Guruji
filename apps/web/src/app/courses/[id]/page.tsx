@@ -675,12 +675,14 @@ export default function RedesignedCourseDetailsPage({ params }: { params?: { id?
                   </button>
                 )}
 
-                <Link
-                  href={`/learn/${course.id}/m1-l1`}
-                  className="px-6 py-4 rounded-2xl border font-bold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition"
-                >
-                  Free Preview
-                </Link>
+                {!isEnrolled && (
+                  <Link
+                    href={`/learn/${course.id}/m1-l1`}
+                    className="px-6 py-4 rounded-2xl border font-bold text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900 transition"
+                  >
+                    Free Preview
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -789,7 +791,7 @@ export default function RedesignedCourseDetailsPage({ params }: { params?: { id?
                               <span>{modSlides.length} Lessons</span>
                               <span>•</span>
                               <span>{mod.duration_minutes || 30} mins</span>
-                              {mod.is_free_preview && (
+                              {mod.is_free_preview && !isEnrolled && (
                                 <>
                                   <span>•</span>
                                   <span className="text-emerald-500 font-bold">Free Preview</span>

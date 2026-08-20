@@ -340,6 +340,17 @@ function CourseCreationWizardContent() {
 
   const [modules, setModules] = useState<Module[]>(createDefaultModules());
 
+  // Automatically attribute course to currently logged-in instructor
+  useEffect(() => {
+    if (user && !editCourseId) {
+      setCourse((prev) => ({
+        ...prev,
+        instructor_id: user.id || prev.instructor_id,
+        trainer_name: user.fullName || prev.trainer_name,
+      }));
+    }
+  }, [user?.id, user?.fullName, editCourseId]);
+
   // Load existing course if editing
   useEffect(() => {
     async function loadExistingCourse() {
@@ -480,7 +491,7 @@ function CourseCreationWizardContent() {
         const coursePayload = {
           id: course.id,
           instructor_id: user?.id || course.instructor_id,
-          trainer_name: course.trainer_name,
+          trainer_name: user?.fullName || course.trainer_name || 'Dr. Ayush Sharma, Lead Specialist',
           title: course.title || 'Untitled Course',
           slug: course.slug || (course.title || 'course').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           summary: course.summary || '',
@@ -550,7 +561,7 @@ function CourseCreationWizardContent() {
       const coursePayload = {
         id: course.id,
         instructor_id: user?.id || course.instructor_id,
-        trainer_name: course.trainer_name,
+        trainer_name: user?.fullName || course.trainer_name || 'Dr. Ayush Sharma, Lead Specialist',
         title: course.title || 'Untitled Course',
         slug: course.slug || (course.title || 'course').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         summary: course.summary || '',

@@ -105,6 +105,7 @@ export default function RedesignedStudentLearningPlayer({
   const [completedSlideIds, setCompletedSlideIds] = useState<Set<string>>(new Set());
   const [passedQuizIds, setPassedQuizIds] = useState<Set<string>>(new Set());
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
   // Quiz State
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
@@ -155,9 +156,29 @@ export default function RedesignedStudentLearningPlayer({
         });
         setModules(parsedModules);
 
+        // Check if user is enrolled or has instructor/admin access
+        let isUserEnrolled = false;
+        if (user) {
+          if (user.role === 'instructor' || user.role === 'admin' || user.id === activeCourse.instructor_id) {
+            isUserEnrolled = true;
+          } else {
+            const { data: enrollCheck } = await supabaseAdmin
+              .from('enrollments')
+              .select('id')
+              .eq('course_id', activeCourse.id)
+              .or(`student_id.eq.${user.id},student_email.eq.${user.email}`)
+              .limit(1);
+
+            if (enrollCheck && enrollCheck.length > 0) {
+              isUserEnrolled = true;
+            }
+          }
+        }
+        setIsEnrolled(isUserEnrolled);
+
         // 3. Load Progress, Quizzes & Restore Saved Position (Resume where student stopped)
         let hasRestoredPosition = false;
-        if (user) {
+        if (user && isUserEnrolled) {
           // Check enrollments table for saved module / slide index
           const { data: enrollData } = await supabaseAdmin
             .from('enrollments')
@@ -277,7 +298,7 @@ export default function RedesignedStudentLearningPlayer({
     }
 
     // 2. Save to Supabase enrollments in background
-    if (user && course.id) {
+    if (user && course.id && isEnrolled) {
       void (async () => {
         try {
           await supabaseAdmin
@@ -311,15 +332,17 @@ export default function RedesignedStudentLearningPlayer({
       };
       window.dispatchEvent(new CustomEvent('active-slide-change', { detail: (window as any).activeCourseSlide }));
     }
-  }, [currentModIdx, currentSlideIdx, activeView, currentSlide?.id, loading, course.id, user]);
+  }, [currentModIdx, currentSlideIdx, activeView, currentSlide?.id, loading, course.id, user, isEnrolled]);
 
   // =========================================================================
-  // LOCK & UNLOCK PROGRESSION LOGIC
+  // LOCK & UNLOCK PROGRESSION LOGIC (FREE PREVIEW RESTRICTION ENFORCED)
   // =========================================================================
   
-  // A module is unlocked if it's Module 0 or all slides in prev module are completed AND quiz passed (if any)
+  // A module is unlocked if it's Module 0. In Free Preview mode, ONLY Module 0 is accessible!
   const isModuleUnlocked = (modIdx: number): boolean => {
     if (modIdx === 0) return true;
+    if (!isEnrolled) return false; // Lock Module 1, 2, 3... in Free Preview Mode!
+
     const prevMod = modules[modIdx - 1];
     if (!prevMod) return true;
 
@@ -350,16 +373,18 @@ export default function RedesignedStudentLearningPlayer({
     return true;
   };
 
-  // Module Quiz is unlocked if module is unlocked and all slides in module are completed
+  // Module Quiz is unlocked ONLY for enrolled users when all slides in module are completed
   const isModuleQuizUnlocked = (modIdx: number): boolean => {
+    if (!isEnrolled) return false; // Quizzes are LOCKED in Free View Mode!
     if (!isModuleUnlocked(modIdx)) return false;
     const mod = modules[modIdx];
     const modSlides = mod?.slides || mod?.slides_data || [];
     return modSlides.length === 0 || modSlides.every((s) => completedSlideIds.has(s.id));
   };
 
-  // Final Certification Exam is unlocked if all modules and quizzes are passed
+  // Final Certification Exam is unlocked ONLY for enrolled users when all modules and quizzes are passed
   const isFinalExamUnlocked = (): boolean => {
+    if (!isEnrolled) return false; // Final certification exam is LOCKED in Free View Mode!
     return modules.every((m, idx) => {
       if (!isModuleUnlocked(idx)) return false;
       const modSlides = m.slides || m.slides_data || [];
@@ -391,14 +416,30 @@ export default function RedesignedStudentLearningPlayer({
       updated.add(slideId);
       setCompletedSlideIds(updated);
 
-      if (user) {
+      if (user && isEnrolled) {
         await supabaseAdmin.from('progress').upsert({
           student_id: user.id,
+          student_email: user.email,
           course_id: course.id,
           lesson_id: slideId,
           is_completed: true,
           updated_at: new Date().toISOString(),
         });
+
+        const newTotalDone = updated.size;
+        const calcPercent = Math.min(100, Math.round((newTotalDone / Math.max(1, totalSlidesInCourse)) * 100));
+
+        await supabaseAdmin
+          .from('enrollments')
+          .update({
+            progress_percent: calcPercent,
+            last_active_module_index: currentModIdx,
+            last_active_slide_index: currentSlideIdx,
+            last_accessed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('course_id', course.id)
+          .or(`student_id.eq.${user.id},student_email.eq.${user.email}`);
       }
     }
   };
@@ -411,14 +452,18 @@ export default function RedesignedStudentLearningPlayer({
     if (currentSlideIdx < slides.length - 1) {
       setCurrentSlideIdx((prev) => prev + 1);
       setActiveView('slide');
+    } else if (!isEnrolled) {
+      showToast({
+        type: 'warning',
+        title: 'Free Preview Completed 🎓',
+        message: 'You have finished the Module 1 Free Preview! Please enroll in the course to attempt quizzes and unlock all remaining modules.',
+      });
     } else if (activeModule?.has_quiz && activeModule?.quiz) {
-      // Go to module quiz
       setActiveView('quiz');
       setCurrentQuestionIdx(0);
       setSelectedAnswers({});
       setQuizSubmitted(false);
     } else if (currentModIdx < modules.length - 1) {
-      // Go to next module
       const nextModIdx = currentModIdx + 1;
       if (isModuleUnlocked(nextModIdx)) {
         setCurrentModIdx(nextModIdx);
@@ -432,7 +477,6 @@ export default function RedesignedStudentLearningPlayer({
         });
       }
     } else {
-      // Reached end of all modules -> Final Exam
       if (isFinalExamUnlocked()) {
         setActiveView('final_exam');
         setCurrentQuestionIdx(0);
@@ -1112,6 +1156,14 @@ export default function RedesignedStudentLearningPlayer({
                         <button
                           type="button"
                           onClick={() => {
+                            if (!isEnrolled) {
+                              showToast({
+                                type: 'warning',
+                                title: 'Free Preview Mode 🔒',
+                                message: 'Quizzes are disabled in Free Preview mode. Please enroll in the course to attempt quizzes and earn credentials!',
+                              });
+                              return;
+                            }
                             if (!isModuleQuizUnlocked(mIdx)) {
                               showToast({
                                 type: 'warning',
@@ -1174,6 +1226,14 @@ export default function RedesignedStudentLearningPlayer({
               <button
                 type="button"
                 onClick={() => {
+                  if (!isEnrolled) {
+                    showToast({
+                      type: 'warning',
+                      title: 'Free Preview Mode 🔒',
+                      message: 'Certification exams are disabled in Free Preview mode. Please enroll in the course to unlock the final exam!',
+                    });
+                    return;
+                  }
                   if (!isFinalExamUnlocked()) {
                     showToast({
                       type: 'warning',
@@ -1498,7 +1558,28 @@ export default function RedesignedStudentLearningPlayer({
 
             {/* B. QUIZ & FINAL ASSESSMENT RUNNER */}
             {(activeView === 'quiz' || activeView === 'final_exam') && (
-              <div className="space-y-8 animate-in fade-in max-w-2xl mx-auto w-full">
+              !isEnrolled ? (
+                <div className="p-8 sm:p-12 rounded-3xl border text-center space-y-5 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-xl max-w-xl mx-auto my-8 animate-in fade-in">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black">Free Preview Mode 🔒</h3>
+                    <p className="text-xs sm:text-sm text-zinc-500 max-w-md mx-auto leading-relaxed font-medium">
+                      You are currently in Free Preview mode. You can study Module 1 lessons, but quizzes and certification assessments require course enrollment.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Link
+                      href={`/courses/${course.id}`}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-wider shadow-lg hover:opacity-90 transition active:scale-95"
+                    >
+                      Enroll & Unlock Full Course →
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8 animate-in fade-in max-w-2xl mx-auto w-full">
                 {/* Quiz Header Banner */}
                 <div className="p-6 rounded-3xl border space-y-2 text-center bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-sm">
                   <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -1665,7 +1746,7 @@ export default function RedesignedStudentLearningPlayer({
                   );
                 })()}
               </div>
-            )}
+            ))}
 
             {/* C. PASSED & CERTIFICATE CELEBRATION */}
             {activeView === 'passed' && (

@@ -65,6 +65,13 @@ export default function StudentDashboardPage() {
 
   const displayName = user?.fullName ? user.fullName.split(' ')[0] : 'Learner';
 
+  // 🔒 ROLE GUARD: Redirect instructors directly to their instructor studio
+  useEffect(() => {
+    if (user && user.role === 'instructor') {
+      router.replace('/instructor/dashboard');
+    }
+  }, [user, router]);
+
   const fetchRealStudentEnrollmentsFromSupabase = async () => {
     if (!user) {
       setLoading(false);
@@ -564,8 +571,11 @@ export default function StudentDashboardPage() {
                     </h3>
                   </Link>
 
-                  <div className="text-[11px] font-mono font-bold text-zinc-500">
-                    {dict.instructor || 'Instructor'}: <span className="text-black dark:text-white">{c.instructor_name}</span>
+                  <div className="text-[11px] font-mono font-bold text-zinc-500 flex items-center justify-between pt-1">
+                    <span>{dict.instructor || 'Instructor'}:</span>
+                    <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 font-black text-xs border border-sky-500/20">
+                      👨‍🏫 {c.instructor_name}
+                    </span>
                   </div>
 
                   <p className="text-xs text-zinc-500 line-clamp-2">

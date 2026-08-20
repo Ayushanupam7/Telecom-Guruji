@@ -70,7 +70,7 @@ export default function CoursesPage() {
           const publishedOnly = courseData.filter((c) => c.is_published !== false);
 
           const formatted = publishedOnly.map((c) => {
-            const realInstructorName = getInstructorNameForCourse(c.category, c.title, c.instructor);
+            const realInstructorName = c.trainer_name || getInstructorNameForCourse(c.category, c.title, c.instructor);
             return {
               ...c,
               instructor: { full_name: realInstructorName, avatar_url: '' },

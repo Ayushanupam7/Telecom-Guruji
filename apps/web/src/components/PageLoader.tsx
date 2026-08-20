@@ -9,13 +9,14 @@ interface PageLoaderProps {
 }
 
 export function PageLoader({
+  message,
+  submessage,
   fullScreen = true,
 }: PageLoaderProps) {
   return (
     <div
-      className={`${
-        fullScreen ? 'fixed inset-0 z-[9999]' : 'w-full min-h-[220px]'
-      } flex flex-col items-center justify-center bg-white/95 dark:bg-black/95 backdrop-blur-md text-black dark:text-white pointer-events-auto p-6 transition-all duration-300`}
+      className={`${fullScreen ? 'fixed inset-0 z-[9999]' : 'w-full min-h-[220px]'
+      } flex flex-col items-center justify-center bg-white/95 dark:bg-black/95 backdrop-blur-md text-black dark:text-white pointer-events-auto p-6 transition-all duration-300 text-center animate-in fade-in duration-200`}
     >
       {/* PURE MONOCHROME BLACK & WHITE MINIMALIST SPINNER */}
       <div className="relative flex items-center justify-center">
@@ -24,6 +25,17 @@ export function PageLoader({
         {/* Inner Counter Spinning Ring */}
         <div className="absolute w-7 h-7 sm:w-8 sm:h-8 rounded-full border-[3px] border-zinc-300 dark:border-zinc-700 border-b-black dark:border-b-white animate-spin [animation-direction:reverse]" />
       </div>
+
+      {message && (
+        <h3 className="text-xs sm:text-sm font-black tracking-wider uppercase font-mono text-black dark:text-white mt-4 mb-1">
+          {message}
+        </h3>
+      )}
+      {submessage && (
+        <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 max-w-xs leading-relaxed font-sans">
+          {submessage}
+        </p>
+      )}
     </div>
   );
 }
