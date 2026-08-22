@@ -116,6 +116,20 @@ export function Step1CourseInfo({ course, onChange, onNext }: Step1CourseInfoPro
     onChange({ tags: existing.filter((t) => t !== tagToRemove) });
   };
 
+  const cleanMarkdownSymbols = (text: string): string => {
+    if (!text) return '';
+    return text
+      .replace(/^Course Title:.*?(Category:.*?)?(Target Level:.*?)?(\n+|$)/gi, '')
+      .replace(/^(Category|Target Level):.*?(\n+|$)/gim, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/__(.*?)__/g, '$1')
+      .replace(/\*([^\*]+)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/^#+\s*/gm, '')
+      .replace(/^\s*[\-\•\*]\s*[\-\–—]+\s*$/gm, '')
+      .trim();
+  };
+
   const handleGenerateDescriptionAI = async () => {
     if (!course.title) return;
     try {
@@ -125,15 +139,19 @@ export function Step1CourseInfo({ course, onChange, onNext }: Step1CourseInfoPro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'expand',
-          content: `Course Title: ${course.title}. Category: ${course.category || '5G & Mobile Networks'}. Target Level: ${course.level || 'intermediate'}.`,
-          instruction: 'Generate a compelling 2-sentence summary and a detailed multi-paragraph course overview covering telecom industry relevance and architecture skills learned.',
+          content: `Topic: ${course.title} (Category: ${course.category || '5G & Mobile Networks'}, Level: ${course.level || 'intermediate'})`,
+          instruction:
+            'Write a professional, comprehensive course description for learners. Start directly with an engaging overview paragraph explaining why this topic is essential and what industry skills students will master. Do NOT repeat or echo "Course Title:" or "Category:". Do NOT use ** markdown asterisks.',
         }),
       });
       const data = await res.json();
       if (data.success && data.result) {
+        const cleaned = cleanMarkdownSymbols(data.result);
+        const cleanSummary = cleanMarkdownSymbols(course.summary || cleaned.slice(0, 180) + '...');
         onChange({
-          detailed_description: data.result,
-          summary: course.summary || data.result.slice(0, 180) + '...',
+          detailed_description: cleaned,
+          description: cleaned,
+          summary: cleanSummary,
         });
       }
     } catch (err) {
@@ -141,6 +159,17 @@ export function Step1CourseInfo({ course, onChange, onNext }: Step1CourseInfoPro
     } finally {
       setGeneratingWithAI(false);
     }
+  };
+
+  const handleCleanCurrentDescription = () => {
+    const curr = course.detailed_description || course.description || '';
+    if (!curr) return;
+    const cleaned = cleanMarkdownSymbols(curr);
+    onChange({
+      detailed_description: cleaned,
+      description: cleaned,
+      summary: cleanMarkdownSymbols(course.summary || ''),
+    });
   };
 
   const presetThemes: Array<{ id: CourseTheme; name: string; primary: string; secondary: string; desc: string }> = [
@@ -271,15 +300,27 @@ export function Step1CourseInfo({ course, onChange, onNext }: Step1CourseInfoPro
                 <label className="text-xs font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                   Detailed Course Description
                 </label>
-                <button
-                  type="button"
-                  onClick={handleGenerateDescriptionAI}
-                  disabled={generatingWithAI || !course.title}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/15 to-indigo-500/15 border border-sky-500/30 text-xs font-bold text-sky-600 dark:text-sky-400 hover:opacity-90 disabled:opacity-50 transition cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                  <span>{generatingWithAI ? 'Synthesizing with AI...' : '✨ Generate with AI'}</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  {(course.detailed_description || course.description || '').includes('**') && (
+                    <button
+                      type="button"
+                      onClick={handleCleanCurrentDescription}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition cursor-pointer"
+                      title="Remove raw ** markdown symbols"
+                    >
+                      <span>🧹 Clean ** Symbols</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleGenerateDescriptionAI}
+                    disabled={generatingWithAI || !course.title}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/15 to-indigo-500/15 border border-sky-500/30 text-xs font-bold text-sky-600 dark:text-sky-400 hover:opacity-90 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>{generatingWithAI ? 'Synthesizing with AI...' : '✨ Generate with AI'}</span>
+                  </button>
+                </div>
               </div>
               <textarea
                 rows={4}

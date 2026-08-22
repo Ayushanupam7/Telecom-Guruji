@@ -1111,7 +1111,7 @@ export default function RedesignedStudentLearningPlayer({
               const modProgressPercent = mSlides.length > 0 ? Math.round((modCompletedCount / mSlides.length) * 100) : 0;
 
               // Clean redundant "Module X:" prefix if present in raw title to prevent truncation
-              const rawTranslatedTitle = translateModuleTitle(m.title, language);
+              const rawTranslatedTitle = m.translations?.[language]?.title || translateModuleTitle(m.title, language);
               const displayModTitle = rawTranslatedTitle.replace(/^Module\s+\d+:\s*/i, '');
 
               return (
@@ -1275,7 +1275,7 @@ export default function RedesignedStudentLearningPlayer({
                                   ? 'text-white font-black'
                                   : 'text-zinc-900 dark:text-zinc-100 font-medium'
                               }`}>
-                                {translateSlideTitle(slide.title, language)}
+                                {slide.translations?.[language]?.title || translateSlideTitle(slide.title, language)}
                               </span>
                             </div>
 

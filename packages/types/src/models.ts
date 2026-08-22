@@ -87,6 +87,11 @@ export interface CourseSlide {
   blocks?: RichBlock[];
   notes?: string;
   duration_seconds?: number;
+  translations?: Record<string, {
+    title?: string;
+    body_markdown?: string;
+    notes?: string;
+  }>;
 }
 
 export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false' | 'short_answer';
@@ -120,6 +125,10 @@ export interface FinalAssessment {
   time_limit_minutes?: number;
   max_attempts?: number;
   questions: Question[];
+  translations?: Record<string, {
+    title?: string;
+    description?: string;
+  }>;
 }
 
 export interface Course {
@@ -162,6 +171,11 @@ export interface Course {
   final_assessment?: FinalAssessment;
   attention_check?: AttentionCheckConfig;
   guruji_config?: GurujiConfig;
+  translations?: Record<string, {
+    title?: string;
+    summary?: string;
+    description?: string;
+  }>;
   // Joined fields
   instructor?: Profile;
   modules?: Module[];
@@ -192,6 +206,10 @@ export interface Module {
   slides_data?: CourseSlide[];
   quiz?: Quiz;
   quiz_data?: Quiz;
+  translations?: Record<string, {
+    title?: string;
+    description?: string;
+  }>;
   unlock_requirement?: {
     type: 'sequential' | 'free';
     prerequisite_module_id?: string;
