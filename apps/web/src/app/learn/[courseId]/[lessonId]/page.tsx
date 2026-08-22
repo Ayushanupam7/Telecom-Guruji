@@ -43,7 +43,9 @@ import {
   CheckCircle,
   Circle,
   Home,
-  AlertCircle
+  AlertCircle,
+  PanelRightClose,
+  PanelRightOpen
 } from 'lucide-react';
 import { INITIAL_DEMO_COURSE } from '@/lib/mockData';
 import { Course, Module, CourseSlide, RichBlock, Question } from '@signalhub/types';
@@ -66,6 +68,7 @@ import {
 } from '@signalhub/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PageLoader } from '@/components/PageLoader';
+import { GurujiOverlay } from '@/components/guruji';
 
 export default function RedesignedStudentLearningPlayer({
   params,
@@ -94,6 +97,9 @@ export default function RedesignedStudentLearningPlayer({
 
   // Card 3 Maximize View State
   const [isMaximized, setIsMaximized] = useState(false);
+
+  // Guruji AI Learning Assistant Overlay State
+  const [isGurujiOpen, setIsGurujiOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -768,8 +774,32 @@ export default function RedesignedStudentLearningPlayer({
             </nav>
           </div>
 
-          {/* Quick Header Actions (Dashboard Navigation & Slide Scan) */}
+          {/* Quick Header Actions (Guruji AI, Slide Scan, Dashboard Navigation) */}
           <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+            {/* Guruji AI Assistant Header Toggle */}
+            {(course.guruji_config?.enabled ?? true) && (
+              <button
+                type="button"
+                onClick={() => setIsGurujiOpen(!isGurujiOpen)}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
+                  isGurujiOpen
+                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-sky-400 shadow-md shadow-sky-500/25 ring-2 ring-sky-400/30'
+                    : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/25'
+                }`}
+                title={isGurujiOpen ? 'Collapse Guruji AI Teacher Card' : 'Expand Guruji AI Teacher Card'}
+              >
+                <span className="text-sm">👨‍🏫</span>
+                <span>Guruji AI</span>
+                {isGurujiOpen ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                ) : (
+                  <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-sky-500/20 text-sky-600 dark:text-sky-300">
+                    Ask
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -853,12 +883,27 @@ export default function RedesignedStudentLearningPlayer({
           <button
             type="button"
             onClick={() => setSidebarCollapsed(false)}
-            className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 px-2 py-3.5 rounded-r-2xl bg-white dark:bg-zinc-900 border border-l-0 border-zinc-300 dark:border-zinc-700 shadow-xl text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-zinc-800 hover:px-3 transition-all items-center gap-1.5 group select-none"
+            className="hidden lg:flex fixed left-0 top-1/2 -translate-y-1/2 z-40 px-2 py-3.5 rounded-r-2xl bg-white dark:bg-zinc-900 border border-l-0 border-zinc-300 dark:border-zinc-700 shadow-xl text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-zinc-800 hover:px-3 transition-all items-center gap-1.5 group select-none cursor-pointer"
             title="Expand Course Syllabus (Click to open)"
           >
             <PanelLeftOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
             <span className="text-[10px] font-mono font-black [writing-mode:vertical-lr] rotate-180 tracking-wider uppercase">
               Syllabus
+            </span>
+          </button>
+        )}
+
+        {/* RIGHT FLOATING EXPAND TAB (Visible on Desktop when Guruji is Collapsed, positioned cleanly below Quick Tools drawer tab) */}
+        {!isGurujiOpen && !isMaximized && (course?.guruji_config?.enabled ?? true) && (
+          <button
+            type="button"
+            onClick={() => setIsGurujiOpen(true)}
+            className="hidden lg:flex fixed right-0 top-[calc(50%+68px)] -translate-y-1/2 z-40 px-2 py-3.5 rounded-l-2xl bg-white dark:bg-zinc-900 border border-r-0 border-zinc-300 dark:border-zinc-700 shadow-xl text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-zinc-800 hover:px-3 transition-all items-center gap-1.5 group select-none cursor-pointer"
+            title="Expand Guruji AI Teacher Card (Click to open)"
+          >
+            <PanelRightOpen className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span className="text-[10px] font-mono font-black [writing-mode:vertical-lr] tracking-wider uppercase">
+              Guruji AI
             </span>
           </button>
         )}
@@ -1880,7 +1925,24 @@ export default function RedesignedStudentLearningPlayer({
             </div>
           )}
         </main>
+
+        {/* ======================================================================= */}
+        {/* CARD 4: RIGHT GURUJI AI AVATAR CARD (INTEGRATED COURSE PLAYER COLUMN) */}
+        {/* ======================================================================= */}
+        {(course?.guruji_config?.enabled ?? true) && (
+          <GurujiOverlay
+            isOpen={isGurujiOpen}
+            onClose={() => setIsGurujiOpen(false)}
+            course={course}
+            activeModule={activeModule}
+            activeSlide={currentSlide}
+            allSlidesInModule={slides}
+            currentSlideIdx={currentSlideIdx}
+            isMaximized={isMaximized}
+          />
+        )}
       </div>
     </div>
   );
 }
+

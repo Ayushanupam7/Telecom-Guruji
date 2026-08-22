@@ -161,6 +161,7 @@ export interface Course {
   };
   final_assessment?: FinalAssessment;
   attention_check?: AttentionCheckConfig;
+  guruji_config?: GurujiConfig;
   // Joined fields
   instructor?: Profile;
   modules?: Module[];
@@ -431,3 +432,80 @@ export interface AIStrategyConfig {
   temperature: number;
   maxTokens: number;
 }
+
+// Guruji AI Learning Assistant & Avatar Overlay Types
+export interface GurujiConfig {
+  enabled: boolean;
+  allow_slide_explanation?: boolean;
+  allow_full_scan?: boolean;
+  allow_ask_questions?: boolean;
+  allow_voice?: boolean;
+  allow_mic?: boolean;
+  default_language?: 'en' | 'hi' | 'hinglish';
+  auto_speak?: boolean;
+}
+
+export type GurujiAvatarState =
+  | 'idle'
+  | 'walking'
+  | 'arriving'
+  | 'thinking'
+  | 'listening'
+  | 'speaking'
+  | 'paused'
+  | 'exiting'
+  | 'error';
+
+export type GurujiViseme = 'rest' | 'A' | 'E' | 'I' | 'O' | 'U' | 'consonant';
+
+export type GurujiGesture = 'none' | 'point_slide' | 'open_hand' | 'nod' | 'emphasis';
+
+export interface GurujiVoiceSettings {
+  language: 'en' | 'hi' | 'hinglish';
+  voiceId: string;
+  speed: number;
+  volume: number;
+  autoSpeak: boolean;
+  simplifiedAnimations?: boolean;
+}
+
+export type GurujiContextMode = 'slide' | 'module' | 'course';
+
+export interface GurujiMessage {
+  id: string;
+  role: 'student' | 'guruji' | 'system';
+  content: string;
+  timestamp: string;
+  contextMode?: GurujiContextMode;
+  slideId?: string;
+  slideTitle?: string;
+}
+
+export interface GurujiScanProgress {
+  stage: 'structure' | 'modules' | 'lessons' | 'concepts' | 'knowledge' | 'complete';
+  percent: number;
+  message: string;
+  completedStages: string[];
+}
+
+export interface GurujiSlideContext {
+  courseId: string;
+  courseTitle: string;
+  courseSummary?: string;
+  moduleId: string;
+  moduleTitle: string;
+  lessonId?: string;
+  slideId: string;
+  slideNumber: number;
+  slideTitle: string;
+  contentType: string;
+  bodyMarkdown?: string;
+  codeSnippet?: string;
+  blocksText?: string;
+  imageUrls?: string[];
+  tablesSummary?: string;
+  notes?: string;
+  prevSlideTitle?: string;
+  nextSlideTitle?: string;
+}
+

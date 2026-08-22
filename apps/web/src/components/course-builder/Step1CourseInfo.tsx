@@ -598,6 +598,109 @@ export function Step1CourseInfo({ course, onChange, onNext }: Step1CourseInfoPro
               </div>
             </div>
           </div>
+
+          {/* SECTION 4: GURUJI AI LEARNING ASSISTANT SETTINGS */}
+          <div className={`p-6 sm:p-7 rounded-3xl border space-y-5 shadow-xs ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-100 dark:border-zinc-800/80">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-black dark:text-white">
+                    Guruji AI Tutor & Overlay
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">Configure in-player AI teacher avatar and capabilities for students.</p>
+                </div>
+              </div>
+
+              {/* Master Guruji Toggle */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-zinc-400">
+                  {(course.guruji_config?.enabled ?? true) ? 'Enabled' : 'Disabled'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = course.guruji_config?.enabled ?? true;
+                    onChange({
+                      guruji_config: {
+                        ...(course.guruji_config || {
+                          allow_slide_explanation: true,
+                          allow_full_scan: true,
+                          allow_ask_questions: true,
+                          allow_voice: true,
+                          allow_mic: true,
+                          default_language: 'en',
+                          auto_speak: true,
+                        }),
+                        enabled: !current,
+                      },
+                    });
+                  }}
+                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+                    (course.guruji_config?.enabled ?? true) ? 'bg-sky-500' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span
+                    className={`block w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
+                      (course.guruji_config?.enabled ?? true) ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {(course.guruji_config?.enabled ?? true) && (
+              <div className="space-y-3 pt-1 animate-in fade-in">
+                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-400">
+                  Student Interactive Permissions:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {[
+                    { key: 'allow_slide_explanation', label: 'Explain Current Slide', desc: 'AI breaks down slides with audio & pedagogy' },
+                    { key: 'allow_full_scan', label: 'Scan Full Course', desc: 'Index curriculum structure & key concepts' },
+                    { key: 'allow_ask_questions', label: 'Ask Questions (Q&A)', desc: 'Interactive chat with slide context' },
+                    { key: 'allow_voice', label: 'Voice Audio (TTS)', desc: 'Natural speech audio playback' },
+                    { key: 'allow_mic', label: 'Microphone Input (STT)', desc: 'Voice questions with speech recognition' },
+                    { key: 'auto_speak', label: 'Auto-Speak on Navigation', desc: 'Start teaching automatically on slide change' },
+                  ].map((opt) => {
+                    const isChecked = (course.guruji_config as any)?.[opt.key] ?? true;
+                    return (
+                      <div
+                        key={opt.key}
+                        onClick={() => {
+                          onChange({
+                            guruji_config: {
+                              ...(course.guruji_config || { enabled: true }),
+                              [opt.key]: !isChecked,
+                            },
+                          });
+                        }}
+                        className={`p-3 rounded-2xl border cursor-pointer transition flex items-start space-x-3 ${
+                          isChecked
+                            ? 'border-sky-500/40 bg-sky-500/10'
+                            : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-md mt-0.5 flex items-center justify-center border text-white ${
+                            isChecked ? 'bg-sky-500 border-sky-500' : 'border-zinc-400 dark:border-zinc-600'
+                          }`}
+                        >
+                          {isChecked && <Check className="w-3 h-3" />}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold">{opt.label}</div>
+                          <div className="text-[10px] text-zinc-400">{opt.desc}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: STICKY LIVE STUDENT DISCOVERY PREVIEW (5 cols) */}

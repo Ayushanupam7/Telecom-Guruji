@@ -34,6 +34,16 @@ export const INITIAL_DEMO_COURSE: Course = {
     triggerIntervalSlides: 2, // Pop up modal after every 2 slides
     timeoutSeconds: 30
   },
+  guruji_config: {
+    enabled: true,
+    allow_slide_explanation: true,
+    allow_full_scan: true,
+    allow_ask_questions: true,
+    allow_voice: true,
+    allow_mic: true,
+    default_language: 'en',
+    auto_speak: true,
+  },
   final_assessment: {
     id: 'fa-demo-1',
     title: 'Mastery Certification Final Assessment',
