@@ -68,7 +68,7 @@ import {
 } from '@signalhub/shared';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PageLoader } from '@/components/PageLoader';
-import { GurujiOverlay } from '@/components/guruji';
+import { GurujiOverlay, GurujiSlideOverlay } from '@/components/guruji';
 
 export default function RedesignedStudentLearningPlayer({
   params,
@@ -339,6 +339,105 @@ export default function RedesignedStudentLearningPlayer({
       window.dispatchEvent(new CustomEvent('active-slide-change', { detail: (window as any).activeCourseSlide }));
     }
   }, [currentModIdx, currentSlideIdx, activeView, currentSlide?.id, loading, course.id, user, isEnrolled]);
+
+  // Dynamic Live Slide Translation Cache
+  const [translatedBlockMap, setTranslatedBlockMap] = useState<Record<string, string>>({});
+  const [isTranslatingSlide, setIsTranslatingSlide] = useState(false);
+
+  useEffect(() => {
+    if (language === 'en' || !currentSlide?.blocks?.length) {
+      setTranslatedBlockMap({});
+      return;
+    }
+
+    const textsToTranslate: string[] = [];
+
+    // Collect slide title, headings, paragraphs, bullet points, callouts, and table cells
+    if (currentSlide.title) textsToTranslate.push(currentSlide.title);
+
+    for (const b of currentSlide.blocks) {
+      const bType = b.type as string;
+      if (
+        bType === 'heading' ||
+        bType === 'subheading' ||
+        bType === 'paragraph' ||
+        bType === 'callout' ||
+        bType === 'quote'
+      ) {
+        if (b.content?.text && typeof b.content.text === 'string' && b.content.text.trim()) {
+          textsToTranslate.push(b.content.text);
+        }
+      } else if (bType === 'bullet_list' || bType === 'numbered_list') {
+        if (Array.isArray(b.content?.items)) {
+          for (const item of b.content.items) {
+            if (item && typeof item === 'string' && item.trim()) {
+              textsToTranslate.push(item);
+            }
+          }
+        }
+      } else if (b.type === 'table') {
+        if (Array.isArray(b.content?.headers)) {
+          for (const h of b.content.headers) {
+            if (h && typeof h === 'string' && h.trim()) textsToTranslate.push(h);
+          }
+        }
+        if (Array.isArray(b.content?.rows)) {
+          for (const row of b.content.rows) {
+            if (Array.isArray(row)) {
+              for (const cell of row) {
+                if (cell && typeof cell === 'string' && cell.trim()) textsToTranslate.push(cell);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (textsToTranslate.length === 0) return;
+
+    let isMounted = true;
+    setIsTranslatingSlide(true);
+
+    fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        texts: Array.from(new Set(textsToTranslate)),
+        targetLang: language,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.translations)) {
+          const uniqueTexts = Array.from(new Set(textsToTranslate));
+          const map: Record<string, string> = {};
+          uniqueTexts.forEach((orig, idx) => {
+            if (data.translations[idx]) {
+              map[orig] = data.translations[idx];
+            }
+          });
+          setTranslatedBlockMap(map);
+        }
+      })
+      .catch((err) => {
+        console.warn('Slide block translation error:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsTranslatingSlide(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentSlide?.id, language]);
+
+  const getTranslatedText = (orig: string, fallbackHelper?: (t: string) => string): string => {
+    if (!orig) return '';
+    if (language === 'en') return orig;
+    if (translatedBlockMap[orig]) return translatedBlockMap[orig];
+    if (fallbackHelper) return fallbackHelper(orig);
+    return translateSlideBody(orig, currentSlide.title, language);
+  };
 
   // =========================================================================
   // LOCK & UNLOCK PROGRESSION LOGIC (FREE PREVIEW RESTRICTION ENFORCED)
@@ -1353,11 +1452,24 @@ export default function RedesignedStudentLearningPlayer({
             ${isLight ? 'bg-white border-zinc-200/90 shadow-zinc-200/50' : 'bg-zinc-900/90 border-zinc-800 shadow-black/40'}
             ${
               isMaximized
-                ? 'fixed inset-1 sm:inset-3 z-50 shadow-2xl h-[calc(100vh-8px)] sm:h-[calc(100vh-24px)]'
-                : 'h-[calc(100vh-140px)]'
+                ? 'fixed inset-1 sm:inset-3 z-50 shadow-2xl h-[calc(100dvh-8px)] sm:h-[calc(100vh-24px)]'
+                : 'h-[calc(100dvh-100px)] sm:h-[calc(100vh-140px)]'
             }
           `}
         >
+          {/* GURUJI SLIDE OVERLAY (Draggable, Transparent Background, Live Speech, Mute/Stop/Analyse Quick Tools) */}
+          {(course?.guruji_config?.enabled ?? true) && activeView === 'slide' && currentSlide && (
+            <GurujiSlideOverlay
+              course={course}
+              activeModule={activeModule}
+              activeSlide={currentSlide}
+              allSlidesInModule={slides}
+              currentSlideIdx={currentSlideIdx}
+              isCardOpen={isGurujiOpen}
+              onOpenCard={() => setIsGurujiOpen(true)}
+            />
+          )}
+
           {/* Card 3 Header Bar (Pinned at top of card) */}
           <div className="flex items-center justify-between p-2.5 sm:px-5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur shrink-0 gap-2 sm:gap-3 z-10">
             <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
@@ -1390,11 +1502,11 @@ export default function RedesignedStudentLearningPlayer({
 
               <h2 className="text-xs sm:text-base font-black truncate text-zinc-900 dark:text-zinc-100">
                 {activeView === 'slide'
-                  ? currentSlide.title
+                  ? getTranslatedText(currentSlide.title, (t) => translateSlideTitle(t, language))
                   : activeView === 'quiz'
-                  ? `${activeModule?.title} Quiz`
+                  ? `${translateModuleTitle(activeModule?.title || 'Module', language)} Quiz`
                   : activeView === 'final_exam'
-                  ? 'Final Certification Examination'
+                  ? dict.finalAssessment || 'Final Certification Examination'
                   : 'Accreditation Unlocked'}
               </h2>
             </div>
@@ -1427,7 +1539,7 @@ export default function RedesignedStudentLearningPlayer({
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-6 scrollbar-thin">
             {/* A. SLIDE CONTENT RENDERER */}
             {activeView === 'slide' && (
-              <div className="space-y-6 animate-in fade-in max-w-5xl mx-auto w-full pb-4">
+              <div className="space-y-6 animate-in fade-in max-w-5xl mx-auto w-full pb-32 sm:pb-8">
                 {/* 14 Rich Block Types Renderer */}
                 <div className="space-y-6">
                   {currentSlide.blocks && currentSlide.blocks.length === 0 ? (
@@ -1441,19 +1553,19 @@ export default function RedesignedStudentLearningPlayer({
                       <div key={block.id || blockIdx} className="transition-all">
                         {(block.type as string) === 'heading' && (
                           <h2 className="text-xl sm:text-2xl font-black mt-6 first:mt-0 tracking-tight text-zinc-900 dark:text-zinc-100">
-                            {translateSlideTitle(block.content.text || '', language)}
+                            {getTranslatedText(block.content.text || '', (t) => translateSlideTitle(t, language))}
                           </h2>
                         )}
 
                         {(block.type as string) === 'subheading' && (
                           <h3 className="text-lg sm:text-xl font-bold mt-4 text-zinc-800 dark:text-zinc-200">
-                            {translateSlideTitle(block.content.text || '', language)}
+                            {getTranslatedText(block.content.text || '', (t) => translateSlideTitle(t, language))}
                           </h3>
                         )}
 
                         {block.type === 'paragraph' && (
                           <p className="text-sm sm:text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
-                            {translateSlideBody(block.content.text || '', currentSlide.title, language)}
+                            {getTranslatedText(block.content.text || '')}
                           </p>
                         )}
 
@@ -1462,7 +1574,7 @@ export default function RedesignedStudentLearningPlayer({
                             {(block.content.items || []).map((item: string, iIdx: number) => (
                               <li key={iIdx} className="flex items-start space-x-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-2 shrink-0" />
-                                <span>{translateSlideBody(item || '', currentSlide.title, language)}</span>
+                                <span>{getTranslatedText(item || '')}</span>
                               </li>
                             ))}
                           </ul>
@@ -1475,7 +1587,7 @@ export default function RedesignedStudentLearningPlayer({
                                 <span className="font-mono font-bold text-sky-500 text-xs shrink-0 mt-0.5">
                                   {iIdx + 1}.
                                 </span>
-                                <span>{translateSlideBody(item || '', currentSlide.title, language)}</span>
+                                <span>{getTranslatedText(item || '')}</span>
                               </li>
                             ))}
                           </ol>
@@ -1491,7 +1603,7 @@ export default function RedesignedStudentLearningPlayer({
                           }`}>
                             <Sparkles className="w-5 h-5 shrink-0 mt-0.5" />
                             <div className="text-xs sm:text-sm leading-relaxed font-medium">
-                              {translateSlideBody(block.content.text || '', currentSlide.title, language)}
+                              {getTranslatedText(block.content.text || '')}
                             </div>
                           </div>
                         )}
@@ -1526,7 +1638,7 @@ export default function RedesignedStudentLearningPlayer({
                             </div>
                             {block.content.caption && (
                               <figcaption className="text-center text-xs text-zinc-500 italic">
-                                {block.content.caption}
+                                {getTranslatedText(block.content.caption)}
                               </figcaption>
                             )}
                           </figure>
@@ -1553,7 +1665,7 @@ export default function RedesignedStudentLearningPlayer({
 
                         {block.type === 'quote' && (
                           <blockquote className="p-5 rounded-2xl border-l-4 border-sky-500 bg-zinc-100/70 dark:bg-zinc-900/50 italic text-sm sm:text-base text-zinc-700 dark:text-zinc-300">
-                            "{translateSlideBody(block.content.text || '', currentSlide.title, language)}"
+                            "{getTranslatedText(block.content.text || '')}"
                             {block.content.author && (
                               <footer className="mt-2 text-xs font-bold not-italic text-zinc-500">
                                 — {block.content.author}
@@ -1570,7 +1682,7 @@ export default function RedesignedStudentLearningPlayer({
                                   <tr>
                                     {block.content.headers.map((h: string, hIdx: number) => (
                                       <th key={hIdx} className="p-3.5 font-bold">
-                                        {h}
+                                        {getTranslatedText(h)}
                                       </th>
                                     ))}
                                   </tr>
@@ -1581,7 +1693,7 @@ export default function RedesignedStudentLearningPlayer({
                                   <tr key={rIdx} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/30">
                                     {row.map((cell: string, cIdx: number) => (
                                       <td key={cIdx} className="p-3.5">
-                                        {cell}
+                                        {getTranslatedText(cell)}
                                       </td>
                                     ))}
                                   </tr>

@@ -78,7 +78,7 @@ export function GurujiOverlay({
       } catch (e) {}
     }
     return {
-      language: (siteLanguage === 'hi' ? 'hi' : 'en') as 'en' | 'hi' | 'hinglish',
+      language: siteLanguage || 'en',
       voiceId: '',
       speed: 1.0,
       volume: 1.0,
@@ -127,6 +127,14 @@ export function GurujiOverlay({
         },
       })
   );
+
+  // Sync siteLanguage changes to voice settings and speech engine
+  useEffect(() => {
+    if (siteLanguage) {
+      setVoiceSettings((prev) => ({ ...prev, language: siteLanguage }));
+      speechEngine.updateSettings({ language: siteLanguage });
+    }
+  }, [siteLanguage, speechEngine]);
 
   // Sync settings to engine
   useEffect(() => {
@@ -284,17 +292,32 @@ export function GurujiOverlay({
         setCurrentExplanation(data.data);
         setActiveTab('explanation');
 
+        const activeLang = voiceSettings.language || siteLanguage || 'en';
+
         // Speak out the explanation
         if (data.data.speechText) {
-          speechEngine.speak(data.data.speechText, voiceSettings.language);
+          speechEngine.speak(data.data.speechText, activeLang);
         }
       } else {
-        const fallbackText = `Let's focus on ${activeSlide.title}. This slide illustrates fundamental architectures in ${activeModule.title}. Review the key diagrams and bullet points carefully.`;
+        const activeLang = voiceSettings.language || siteLanguage || 'en';
+        const fallbackMap: Record<string, string> = {
+          hi: `यहाँ ${activeSlide.title} है। इस स्लाइड में दिए गए मुख्य घटकों और परिभाषाओं को ध्यान से समझें।`,
+          hinglish: `Yeh hai ${activeSlide.title}. Is slide ke core components aur concepts ko dhyan se samajhte hain.`,
+          ta: `இது ${activeSlide.title}. இந்த ஸ்லைடில் உள்ள முக்கிய கருத்துக்களை கவனிப்போம்.`,
+          te: `ఇది ${activeSlide.title}. ఈ స్లైడ్‌లోని ముఖ్యమైన అంశాలను అర్థం చేసుకుందాం.`,
+          kn: `ಇದು ${activeSlide.title}. ಈ ಸ್ಲೈಡ್‌ನಲ್ಲಿರುವ ಮುಖ್ಯ ಪರಿಕಲ್ಪನೆಗಳನ್ನು ಗಮನಿಸಿ.`,
+          ml: `ഇത് ${activeSlide.title}. ഈ സ്ലൈഡിലെ പ്രധാന ആശയങ്ങൾ നമുക്ക് പഠിക്കാം.`,
+          bn: `এটি ${activeSlide.title}। এই স্লাইডের মূল বিষয়গুলি মনোযোগ দিয়ে বুঝুন।`,
+          mr: `ही ${activeSlide.title} आहे. या स्लाईडमधील मुख्य घटक काळजीपूर्वक समजून घ्या.`,
+          gu: `આ ${activeSlide.title} છે. આ સ્લાઇડના મુખ્ય મુદ્દાઓને સમજીએ.`,
+          en: `Let's focus on ${activeSlide.title}. This slide illustrates fundamental architectures in ${activeModule.title}. Review the key diagrams and bullet points carefully.`,
+        };
+        const fallbackText = fallbackMap[activeLang] || fallbackMap.en;
         setCurrentExplanation({
           speechText: fallbackText,
           bulletPoints: [`Key Topic: ${activeSlide.title}`, `Review module definitions and parameters.`],
         });
-        speechEngine.speak(fallbackText, voiceSettings.language);
+        speechEngine.speak(fallbackText, activeLang);
       }
     } catch (err) {
       console.error('Error generating slide explanation:', err);

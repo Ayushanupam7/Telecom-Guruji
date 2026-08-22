@@ -9,7 +9,7 @@ interface GurujiCourseScanModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: Course;
-  language: 'en' | 'hi' | 'hinglish';
+  language: string;
   onScanComplete: (knowledge: any) => void;
   onExplainCourse: () => void;
   onAskAnything: () => void;

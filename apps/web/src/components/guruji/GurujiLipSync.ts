@@ -13,6 +13,7 @@ export class GurujiLipSync {
   private timer: any = null;
   private onVisemeChange?: (viseme: GurujiViseme) => void;
   private isRunning = false;
+  private speedMultiplier = 1.0;
 
   constructor(onVisemeChange?: (viseme: GurujiViseme) => void) {
     this.onVisemeChange = onVisemeChange;
@@ -29,7 +30,8 @@ export class GurujiLipSync {
     this.stop();
     if (!text || !text.trim()) return;
 
-    this.timeline = this.buildTimeline(text, speedMultiplier);
+    this.speedMultiplier = Math.max(0.5, Math.min(2.2, speedMultiplier));
+    this.timeline = this.buildTimeline(text, this.speedMultiplier);
     this.currentTimelineIdx = 0;
     this.isRunning = true;
     this.executeNextFrame();
@@ -57,8 +59,11 @@ export class GurujiLipSync {
     if (!this.isRunning) return;
 
     if (this.currentTimelineIdx >= this.timeline.length) {
-      this.setViseme('rest');
-      this.isRunning = false;
+      // Keep natural conversational mouth movement active continuously until speechEngine explicitly stops
+      const fallbackVisemes: GurujiViseme[] = ['A', 'E', 'consonant', 'I', 'O', 'consonant', 'rest'];
+      const nextV = fallbackVisemes[Math.floor(Math.random() * fallbackVisemes.length)];
+      this.setViseme(nextV);
+      this.timer = setTimeout(this.executeNextFrame, Math.round((75 + Math.random() * 50) / this.speedMultiplier));
       return;
     }
 
@@ -76,7 +81,7 @@ export class GurujiLipSync {
     const timeline: TimedViseme[] = [];
     const speed = Math.max(0.5, Math.min(2.2, speedMultiplier));
 
-    // Base milliseconds per character (approx 55ms per char at 1.0x speed)
+    // Base milliseconds per character (approx 52ms per char at 1.0x speed)
     const baseCharMs = 52 / speed;
 
     // Regex to split by words and punctuation
@@ -89,8 +94,8 @@ export class GurujiLipSync {
       if (isPunctuation) {
         // Pause at commas / sentence ends
         const pauseDuration = (token.includes('.') || token.includes('!') || token.includes('?'))
-          ? Math.round(280 / speed)
-          : Math.round(140 / speed);
+          ? Math.round(260 / speed)
+          : Math.round(130 / speed);
 
         timeline.push({
           viseme: 'rest',
@@ -138,10 +143,10 @@ export class GurujiLipSync {
         });
       });
 
-      // Small 30ms breath/rest space between words
+      // Small 25ms breath/rest space between words
       timeline.push({
         viseme: 'rest',
-        durationMs: Math.round(30 / speed),
+        durationMs: Math.round(25 / speed),
       });
 
       runningCharIndex += token.length + 1;

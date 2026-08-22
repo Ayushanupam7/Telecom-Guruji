@@ -10,7 +10,7 @@ interface GurujiVoiceSettingsModalProps {
   settings: GurujiVoiceSettings;
   availableVoices: Array<{ id: string; name: string; lang: string; isIndian: boolean }>;
   onSave: (newSettings: GurujiVoiceSettings) => void;
-  onTestVoice?: (text: string, lang: 'en' | 'hi' | 'hinglish') => void;
+  onTestVoice?: (text: string, lang: string) => void;
 }
 
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -71,11 +71,18 @@ export function GurujiVoiceSettingsModal({
               <Globe className="w-3.5 h-3.5 text-sky-400" />
               <span>Teaching Language</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
-                { id: 'en', label: 'English', desc: 'Global English' },
-                { id: 'hinglish', label: 'Hinglish', desc: 'Hindi-English Mix' },
-                { id: 'hi', label: 'हिन्दी', desc: 'Pure Hindi' },
+                { id: 'en', label: 'English', native: 'English', desc: 'Global English' },
+                { id: 'hi', label: 'Hindi', native: 'हिन्दी', desc: 'Devanagari Hindi' },
+                { id: 'hinglish', label: 'Hinglish', native: 'Hinglish', desc: 'Hindi-English Mix' },
+                { id: 'ta', label: 'Tamil', native: 'தமிழ்', desc: 'Tamil Voice' },
+                { id: 'te', label: 'Telugu', native: 'తెలుగు', desc: 'Telugu Voice' },
+                { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ', desc: 'Kannada Voice' },
+                { id: 'ml', label: 'Malayalam', native: 'മലയാളം', desc: 'Malayalam Voice' },
+                { id: 'bn', label: 'Bengali', native: 'বাংলা', desc: 'Bengali Voice' },
+                { id: 'mr', label: 'Marathi', native: 'मराठी', desc: 'Marathi Voice' },
+                { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી', desc: 'Gujarati Voice' },
               ].map((lang) => {
                 const isSelected = localSettings.language === lang.id;
                 return (
@@ -83,17 +90,17 @@ export function GurujiVoiceSettingsModal({
                     key={lang.id}
                     type="button"
                     onClick={() =>
-                      setLocalSettings({ ...localSettings, language: lang.id as 'en' | 'hi' | 'hinglish' })
+                      setLocalSettings({ ...localSettings, language: lang.id })
                     }
-                    className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                    className={`p-2.5 rounded-2xl border text-left transition flex flex-col justify-between ${
                       isSelected
                         ? 'border-sky-500 bg-sky-500/15 text-white ring-1 ring-sky-500'
                         : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
-                      <span className="text-xs font-bold">{lang.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-400" />}
+                      <span className="text-xs font-bold">{lang.native}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
                     </div>
                     <span className="text-[10px] text-zinc-500 mt-1">{lang.desc}</span>
                   </button>
@@ -231,12 +238,19 @@ export function GurujiVoiceSettingsModal({
             <button
               type="button"
               onClick={() => {
-                const sampleText =
-                  localSettings.language === 'hi'
-                    ? 'नमस्ते! यह गुरुजी की आवाज का परीक्षण है।'
-                    : localSettings.language === 'hinglish'
-                    ? 'Namaste! Yeh Guruji ki voice ka audio test hai.'
-                    : "Namaste! This is a test of Guruji's audio voice.";
+                const sampleMap: Record<string, string> = {
+                  hi: 'नमस्ते! यह गुरुजी की आवाज का परीक्षण है।',
+                  hinglish: 'Namaste! Yeh Guruji ki voice ka audio test hai.',
+                  ta: 'வணக்கம்! இது குருஜியின் குரல் சோதனை.',
+                  te: 'నమస్కారం! ఇది గురూజీ వాయిస్ టెస్ట్.',
+                  kn: 'ನಮಸ್ಕಾರ! ಇದು ಗುರುಜಿಯವರ ಧ್ವನಿ ಪರೀಕ್ಷೆ.',
+                  ml: 'നമസ്കാരം! ഇത് ഗുരുജിയുടെ ശബ്ദ പരിശോധനയാണ്.',
+                  bn: 'নমস্কার! এটি গুরুজির অডিও ভয়েস টেস্ট।',
+                  mr: 'नमस्ते! ही गुरुजींच्या आवाजाची चाचणी आहे.',
+                  gu: 'નમસ્તે! આ ગુરુજીના અવાજની ઓડિયો કસોટી છે.',
+                  en: "Namaste! This is a test of Guruji's audio voice.",
+                };
+                const sampleText = sampleMap[localSettings.language] || sampleMap.en;
                 onTestVoice(sampleText, localSettings.language);
               }}
               className="px-4 py-2 rounded-xl border border-zinc-700 hover:bg-zinc-800 text-xs font-bold text-zinc-300 transition"

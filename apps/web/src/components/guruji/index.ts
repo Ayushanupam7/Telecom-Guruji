@@ -7,3 +7,4 @@ export * from './GurujiFloatingButton';
 export * from './GurujiVoiceSettingsModal';
 export * from './GurujiCourseScanModal';
 export * from './GurujiOverlay';
+export * from './GurujiSlideOverlay';

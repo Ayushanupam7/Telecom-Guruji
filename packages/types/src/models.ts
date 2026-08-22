@@ -458,10 +458,34 @@ export type GurujiAvatarState =
 
 export type GurujiViseme = 'rest' | 'A' | 'E' | 'I' | 'O' | 'U' | 'consonant';
 
-export type GurujiGesture = 'none' | 'point_slide' | 'open_hand' | 'nod' | 'emphasis';
+export type GurujiGesture =
+  | 'none'
+  | 'point_slide'
+  | 'pocket_point'
+  | 'open_hand'
+  | 'open_both_hands'
+  | 'one_up_one_down'
+  | 'both_hands_up'
+  | 'folded_arms'
+  | 'join_hands'
+  | 'nod'
+  | 'emphasis';
+
+export type GurujiVoiceLanguage =
+  | 'en'
+  | 'hi'
+  | 'hinglish'
+  | 'ta'
+  | 'te'
+  | 'kn'
+  | 'ml'
+  | 'bn'
+  | 'mr'
+  | 'gu'
+  | (string & {});
 
 export interface GurujiVoiceSettings {
-  language: 'en' | 'hi' | 'hinglish';
+  language: GurujiVoiceLanguage;
   voiceId: string;
   speed: number;
   volume: number;

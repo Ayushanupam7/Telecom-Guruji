@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 interface GurujiRequestBody {
   action: 'explain_slide' | 'scan_course' | 'ask_question';
-  language?: 'en' | 'hi' | 'hinglish';
+  language?: string;
   isFirstTime?: boolean;
   slideContext?: GurujiSlideContext;
   courseData?: any;
@@ -54,6 +54,20 @@ export async function POST(req: NextRequest) {
           ? 'Deliver the explanation in friendly, professional HINGLISH (Latin alphabet). Use natural conversational Hindi-English blend.'
           : language === 'hi'
           ? 'Deliver the explanation in clear, polite HINDI (Devanagari script).'
+          : language === 'ta'
+          ? 'Deliver the explanation in clear, engaging TAMIL (தமிழ் script).'
+          : language === 'te'
+          ? 'Deliver the explanation in clear, engaging TELUGU (తెలుగు script).'
+          : language === 'kn'
+          ? 'Deliver the explanation in clear, engaging KANNADA (ಕನ್ನಡ script).'
+          : language === 'ml'
+          ? 'Deliver the explanation in clear, engaging MALAYALAM (മലയാളം script).'
+          : language === 'bn'
+          ? 'Deliver the explanation in clear, engaging BENGALI (বাংলা script).'
+          : language === 'mr'
+          ? 'Deliver the explanation in clear, engaging MARATHI (मराठी script).'
+          : language === 'gu'
+          ? 'Deliver the explanation in clear, engaging GUJARATI (ગુજરાતી script).'
           : 'Deliver the explanation in clear, natural, engaging ENGLISH.';
 
       const introInstruction = isFirstTime
@@ -61,6 +75,20 @@ export async function POST(req: NextRequest) {
           ? 'Start with a brief warm opening like: "Namaste! Main hoon Guruji. Chaliye is slide ko simple aur interesting tarike se samajhte hain."'
           : language === 'hi'
           ? 'Start with a brief warm opening like: "नमस्ते! मैं गुरुजी हूँ। चलिए इस स्लाइड को आसानी से समझते हैं।"'
+          : language === 'ta'
+          ? 'Start with a brief warm opening like: "வணக்கம்! நான் குருஜி. இந்த ஸ்லைடை எளிதாகப் புரிந்து கொள்வோம்."'
+          : language === 'te'
+          ? 'Start with a brief warm opening like: "నమస్కారం! నేను గురూజీ. ఈ స్లైడ్ గురించి సులభంగా తెలుసుకుందాం."'
+          : language === 'kn'
+          ? 'Start with a brief warm opening like: "ನಮಸ್ಕಾರ! ನಾನು ಗುರೂಜಿ. ಈ ಸ್ಲೈಡ್ ಅನ್ನು ಸುಲಭವಾಗಿ ಅರ್ಥಮಾಡಿಕೊಳ್ಳೋಣ."'
+          : language === 'ml'
+          ? 'Start with a brief warm opening like: "നമസ്കാരം! ഞാൻ ഗുരുജി. നമുക്ക് ഈ സ്ലൈഡ് എളുപ്പത്തിൽ പഠിക്കാം."'
+          : language === 'bn'
+          ? 'Start with a brief warm opening like: "নমস্কার! আমি গুরুজি। আসুন এই স্লাইডটি সহজে বুঝে নিই।"'
+          : language === 'mr'
+          ? 'Start with a brief warm opening like: "नमस्ते! मी गुरुजी. चला ही स्लाईड सोप्या भाषेत समजून घेऊया."'
+          : language === 'gu'
+          ? 'Start with a brief warm opening like: "નમસ્તે! હું ગુરુજી છું. ચાલો આ સ્લાઇડને સરળતાથી સમજીએ."'
           : 'Start with a brief warm opening like: "Namaste! I\'m Guruji. Let me explain this slide for you."'
         : 'Do NOT re-introduce yourself. Start directly explaining the slide concepts smoothly.';
 
@@ -211,6 +239,20 @@ Generate a comprehensive knowledge index of this course. Return a JSON object st
           ? 'Answer in warm, clear HINGLISH (Latin script Romanized Hindi-English).'
           : language === 'hi'
           ? 'Answer in polite, standard HINDI (Devanagari script).'
+          : language === 'ta'
+          ? 'Answer in clear, engaging TAMIL (தமிழ் script).'
+          : language === 'te'
+          ? 'Answer in clear, engaging TELUGU (తెలుగు script).'
+          : language === 'kn'
+          ? 'Answer in clear, engaging KANNADA (ಕನ್ನಡ script).'
+          : language === 'ml'
+          ? 'Answer in clear, engaging MALAYALAM (മലയാളം script).'
+          : language === 'bn'
+          ? 'Answer in clear, engaging BENGALI (বাংলা script).'
+          : language === 'mr'
+          ? 'Answer in clear, engaging MARATHI (मराठी script).'
+          : language === 'gu'
+          ? 'Answer in clear, engaging GUJARATI (ગુજરાતી script).'
           : 'Answer in clear, engaging, conversational ENGLISH.';
 
       const conversationContext = conversationHistory
