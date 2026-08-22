@@ -28,7 +28,6 @@ import {
   PanelRightOpen
 } from 'lucide-react';
 import { Course, CourseSlide, GurujiAvatarState, GurujiContextMode, GurujiMessage, GurujiVoiceSettings, Module } from '@signalhub/types';
-import { GurujiAvatar } from './GurujiAvatar';
 import { GurujiAnimationController } from './GurujiAnimationController';
 import { GurujiLipSync } from './GurujiLipSync';
 import { GurujiSpeechEngine } from './GurujiSpeechEngine';
@@ -66,7 +65,13 @@ export function GurujiOverlay({
   // 1. Controller & Engine Instances (Persisted across renders)
   const animationController = useMemo(() => new GurujiAnimationController(), []);
   const lipSync = useMemo(
-    () => new GurujiLipSync((v) => animationController.setViseme(v)),
+    () =>
+      new GurujiLipSync((v) => {
+        animationController.setViseme(v);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('guruji-viseme-sync', { detail: { viseme: v } }));
+        }
+      }),
     [animationController]
   );
 
@@ -93,24 +98,39 @@ export function GurujiOverlay({
           setIsSpeaking(true);
           setIsPaused(false);
           animationController.setState('speaking');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: false } }));
+          }
         },
         onEnd: () => {
           setIsSpeaking(false);
           setIsPaused(false);
           animationController.setState('idle');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: false, isPaused: false } }));
+          }
         },
         onPause: () => {
           setIsPaused(true);
           animationController.setState('paused');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: true } }));
+          }
         },
         onResume: () => {
           setIsPaused(false);
           animationController.setState('speaking');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: false } }));
+          }
         },
         onError: () => {
           setIsSpeaking(false);
           setIsPaused(false);
           animationController.setState('idle');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: false, isPaused: false } }));
+          }
         },
         onListeningStateChange: (listening) => {
           setIsListening(listening);
@@ -176,10 +196,17 @@ export function GurujiOverlay({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const previousSlideIdRef = useRef<string>(activeSlide.id);
 
-  // Subscribe to controller state changes
+  // Subscribe to controller state changes & broadcast to floating avatar
   useEffect(() => {
     const unsub = animationController.subscribe((s) => {
       setAvatarState(s.state);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('guruji-state-sync', {
+            detail: { state: s.state, gesture: s.gesture, lookDirection: s.lookDirection },
+          })
+        );
+      }
     });
     return unsub;
   }, [animationController]);
@@ -248,6 +275,39 @@ export function GurujiOverlay({
     }
   }, [chatMessages, activeTab]);
 
+  // Listen to explanations synchronized from Floating Overlay
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      const { slideId, data } = e.detail || {};
+      if (slideId === activeSlide.id && data) {
+        setCurrentExplanation(data);
+      }
+    };
+    const handleRemoteToggle = () => {
+      if (isSpeaking && !isPaused) {
+        speechEngine.pause();
+      } else if (isPaused) {
+        speechEngine.resume();
+      } else if (currentExplanation?.speechText) {
+        speechEngine.speak(currentExplanation.speechText, voiceSettings.language);
+      } else {
+        handleExplainCurrentSlide(false);
+      }
+    };
+    const handleRemoteExplain = () => {
+      handleExplainCurrentSlide(false);
+    };
+
+    window.addEventListener('guruji-explanation-sync', handleSync);
+    window.addEventListener('guruji-remote-toggle-play', handleRemoteToggle);
+    window.addEventListener('guruji-remote-trigger-explain', handleRemoteExplain);
+    return () => {
+      window.removeEventListener('guruji-explanation-sync', handleSync);
+      window.removeEventListener('guruji-remote-toggle-play', handleRemoteToggle);
+      window.removeEventListener('guruji-remote-trigger-explain', handleRemoteExplain);
+    };
+  }, [activeSlide.id, isSpeaking, isPaused, currentExplanation, voiceSettings.language, speechEngine]);
+
   // Collapse with walk-out transition
   const handleInitiateClose = () => {
     speechEngine.stop();
@@ -267,6 +327,26 @@ export function GurujiOverlay({
     speechEngine.stop();
     animationController.setState('thinking');
 
+    const activeLang = voiceSettings.language || siteLanguage || 'en';
+
+    // 1. Check cached explanation first
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`tg_explanation_${activeSlide.id}_${activeLang}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.speechText) {
+            setCurrentExplanation(parsed);
+            setActiveTab('explanation');
+            setIsLoadingAI(false);
+            animationController.setState('speaking');
+            speechEngine.speak(parsed.speechText, activeLang);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const slideCtx = GurujiContextBuilder.buildSlideContext(
         course,
@@ -281,7 +361,7 @@ export function GurujiOverlay({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'explain_slide',
-          language: voiceSettings.language,
+          language: activeLang,
           isFirstTime: firstTime,
           slideContext: slideCtx,
         }),
@@ -292,7 +372,16 @@ export function GurujiOverlay({
         setCurrentExplanation(data.data);
         setActiveTab('explanation');
 
-        const activeLang = voiceSettings.language || siteLanguage || 'en';
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(`tg_explanation_${activeSlide.id}_${activeLang}`, JSON.stringify(data.data));
+            window.dispatchEvent(
+              new CustomEvent('guruji-explanation-sync', {
+                detail: { slideId: activeSlide.id, language: activeLang, data: data.data },
+              })
+            );
+          } catch (e) {}
+        }
 
         // Speak out the explanation
         if (data.data.speechText) {
@@ -481,25 +570,27 @@ export function GurujiOverlay({
               </div>
             </div>
 
-            {/* 2. AVATAR STAGE (Interactive Visual Character Viewport) */}
-            <div className="relative h-40 sm:h-44 shrink-0 bg-gradient-to-b from-sky-500/5 to-transparent border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-center overflow-hidden">
-              {/* Animated Vector Avatar Character */}
-              <div className="w-36 sm:w-40 h-36 sm:h-40 relative z-10 flex items-center justify-center">
-                <GurujiAvatar controller={animationController} avatarState={avatarState} />
+            {/* 2. AI TEACHER STATUS & CONTEXT BAR (Avatar is exclusively used in the floating slide overlay) */}
+            <div className="px-3 py-2 bg-gradient-to-r from-sky-500/5 via-indigo-500/5 to-transparent border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2">
+                {isSpeaking ? (
+                  <div className="flex items-end space-x-1 h-3.5 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20">
+                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-3.5" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2.5" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-1.5" style={{ animationDelay: '450ms' }} />
+                    <span className="text-[9px] font-bold text-sky-500 ml-1">Speaking</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-1.5 text-zinc-400 text-[10px]">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>AI Ready</span>
+                  </div>
+                )}
               </div>
 
-              {/* Speaking Waveform / Equalizer Overlay */}
-              {isSpeaking && (
-                <div className="absolute bottom-2 left-3 flex items-end space-x-1 h-3.5">
-                  <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1 bg-sky-500 rounded-full animate-bounce h-3.5" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2.5" style={{ animationDelay: '300ms' }} />
-                  <span className="w-1 bg-sky-500 rounded-full animate-bounce h-1.5" style={{ animationDelay: '450ms' }} />
-                </div>
-              )}
-
-              {/* Quick Context Mode Selector (Top Right of Avatar Stage) */}
-              <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-zinc-100/90 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-800 backdrop-blur z-20">
+              {/* Quick Context Mode Selector */}
+              <div className="flex items-center gap-0.5 bg-zinc-100/90 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setContextMode('slide')}

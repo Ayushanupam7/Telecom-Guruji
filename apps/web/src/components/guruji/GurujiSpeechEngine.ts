@@ -84,28 +84,91 @@ export class GurujiSpeechEngine {
     this.voices = this.synth.getVoices();
   }
 
-  public getAvailableVoices(): Array<{ id: string; name: string; lang: string; isIndian: boolean }> {
+  private isFemaleVoice(v: SpeechSynthesisVoice): boolean {
+    const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+    return (
+      name.includes('female') ||
+      name.includes('kalpana') ||
+      name.includes('zira') ||
+      name.includes('jenny') ||
+      name.includes('aria') ||
+      name.includes('sonia') ||
+      name.includes('neerja') ||
+      name.includes('samantha') ||
+      name.includes('victoria') ||
+      name.includes('heera') ||
+      name.includes('swara') ||
+      name.includes('pallavi') ||
+      name.includes('shruti') ||
+      name.includes('kavya') ||
+      name.includes('shreya') ||
+      name.includes('priya') ||
+      name.includes('anjali') ||
+      name.includes('pooja') ||
+      name.includes('deepa') ||
+      name.includes('leila') ||
+      name.includes('hazel') ||
+      name.includes('susan') ||
+      name.includes('karen') ||
+      name.includes('catherine') ||
+      name.includes('yara') ||
+      name.includes('maya') ||
+      name.includes('sunita') ||
+      name.includes('veena') ||
+      name.includes('aditi')
+    );
+  }
+
+  private isMaleVoice(v: SpeechSynthesisVoice): boolean {
+    if (this.isFemaleVoice(v)) return false;
+    const name = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+    return (
+      name.includes('male') ||
+      name.includes('prabhat') ||
+      name.includes('ravi') ||
+      name.includes('hemant') ||
+      name.includes('madhur') ||
+      name.includes('david') ||
+      name.includes('guy') ||
+      name.includes('george') ||
+      name.includes('mark') ||
+      name.includes('ryan') ||
+      name.includes('mohan') ||
+      name.includes('valluvar') ||
+      name.includes('gagan') ||
+      name.includes('midhun') ||
+      name.includes('bashkar') ||
+      name.includes('manohar') ||
+      name.includes('niranjan') ||
+      name.includes('natural')
+    );
+  }
+
+  public getAvailableVoices(): Array<{ id: string; name: string; lang: string; isIndian: boolean; isMale: boolean }> {
     if (!this.synth && typeof window !== 'undefined') {
       this.synth = window.speechSynthesis;
       this.voices = this.synth?.getVoices() || [];
     }
 
-    return this.voices.map((v) => ({
-      id: v.voiceURI || v.name,
-      name: v.name,
-      lang: v.lang,
-      isIndian:
-        v.lang.includes('IN') ||
-        v.name.toLowerCase().includes('india') ||
-        v.name.toLowerCase().includes('hindi') ||
-        v.name.toLowerCase().includes('tamil') ||
-        v.name.toLowerCase().includes('telugu') ||
-        v.name.toLowerCase().includes('kannada') ||
-        v.name.toLowerCase().includes('malayalam') ||
-        v.name.toLowerCase().includes('bengali') ||
-        v.name.toLowerCase().includes('marathi') ||
-        v.name.toLowerCase().includes('gujarati'),
-    }));
+    return this.voices
+      .filter((v) => !this.isFemaleVoice(v))
+      .map((v) => ({
+        id: v.voiceURI || v.name,
+        name: v.name,
+        lang: v.lang,
+        isIndian:
+          v.lang.includes('IN') ||
+          v.name.toLowerCase().includes('india') ||
+          v.name.toLowerCase().includes('hindi') ||
+          v.name.toLowerCase().includes('tamil') ||
+          v.name.toLowerCase().includes('telugu') ||
+          v.name.toLowerCase().includes('kannada') ||
+          v.name.toLowerCase().includes('malayalam') ||
+          v.name.toLowerCase().includes('bengali') ||
+          v.name.toLowerCase().includes('marathi') ||
+          v.name.toLowerCase().includes('gujarati'),
+        isMale: this.isMaleVoice(v),
+      }));
   }
 
   private selectBestVoice(lang: string): SpeechSynthesisVoice | null {
@@ -113,72 +176,73 @@ export class GurujiSpeechEngine {
       this.loadVoices();
     }
 
-    // 1. If explicit voice ID specified by user
+    // Filter out all female voices for Guruji
+    const maleCandidateVoices = this.voices.filter((v) => !this.isFemaleVoice(v));
+
+    // 1. If explicit voice ID specified by user and is not female
     if (this.settings.voiceId) {
-      const match = this.voices.find((v) => v.voiceURI === this.settings.voiceId || v.name === this.settings.voiceId);
+      const match = maleCandidateVoices.find((v) => v.voiceURI === this.settings.voiceId || v.name === this.settings.voiceId);
       if (match) return match;
     }
 
     const lowerLang = (lang || 'en').toLowerCase();
 
-    // 2. Language-specific matching across all 10 supported app languages
+    // 2. Hindi matching (strictly male: Hemant, Madhur, Prabhat, Ravi)
     if (lowerLang === 'hi') {
-      const v = this.voices.find((v) => v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi'));
-      if (v) return v;
-    } else if (lowerLang === 'ta') {
-      const v = this.voices.find((v) => v.lang.startsWith('ta') || v.name.toLowerCase().includes('tamil'));
+      const maleHindi = maleCandidateVoices.find(
+        (v) => (v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi')) && this.isMaleVoice(v)
+      );
+      if (maleHindi) return maleHindi;
+
+      const nonFemaleHindi = maleCandidateVoices.find((v) => v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi'));
+      if (nonFemaleHindi) return nonFemaleHindi;
+    }
+
+    // 3. Regional Indian matching (strictly male)
+    if (lowerLang === 'ta') {
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('ta') || v.name.toLowerCase().includes('tamil')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'te') {
-      const v = this.voices.find((v) => v.lang.startsWith('te') || v.name.toLowerCase().includes('telugu'));
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('te') || v.name.toLowerCase().includes('telugu')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'kn') {
-      const v = this.voices.find((v) => v.lang.startsWith('kn') || v.name.toLowerCase().includes('kannada'));
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('kn') || v.name.toLowerCase().includes('kannada')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'ml') {
-      const v = this.voices.find((v) => v.lang.startsWith('ml') || v.name.toLowerCase().includes('malayalam'));
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('ml') || v.name.toLowerCase().includes('malayalam')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'bn') {
-      const v = this.voices.find(
-        (v) => v.lang.startsWith('bn') || v.name.toLowerCase().includes('bengali') || v.name.toLowerCase().includes('bangla')
-      );
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('bn') || v.name.toLowerCase().includes('bengali')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'mr') {
-      const v = this.voices.find((v) => v.lang.startsWith('mr') || v.name.toLowerCase().includes('marathi'));
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('mr') || v.name.toLowerCase().includes('marathi')) && !this.isFemaleVoice(v));
       if (v) return v;
     } else if (lowerLang === 'gu') {
-      const v = this.voices.find((v) => v.lang.startsWith('gu') || v.name.toLowerCase().includes('gujarati'));
+      const v = maleCandidateVoices.find((v) => (v.lang.startsWith('gu') || v.name.toLowerCase().includes('gujarati')) && !this.isFemaleVoice(v));
       if (v) return v;
     }
 
-    // 3. Indian English / Hinglish matching
+    // 4. Indian English / Hinglish matching (strictly male: Prabhat, Ravi, etc.)
     if (lowerLang === 'hinglish' || lowerLang === 'en') {
-      const indianEnVoice = this.voices.find(
+      const maleIndianEn = maleCandidateVoices.find(
         (v) =>
-          v.lang === 'en-IN' ||
-          v.name.toLowerCase().includes('india') ||
-          v.name.toLowerCase().includes('prabhat') ||
-          v.name.toLowerCase().includes('ravi')
+          (v.lang === 'en-IN' || v.name.toLowerCase().includes('india')) &&
+          this.isMaleVoice(v)
       );
-      if (indianEnVoice) return indianEnVoice;
+      if (maleIndianEn) return maleIndianEn;
     }
 
-    // 4. Natural English Male/Teacher voices
-    const maleVoice = this.voices.find(
-      (v) =>
-        v.lang.startsWith('en') &&
-        (v.name.toLowerCase().includes('natural') ||
-          v.name.toLowerCase().includes('david') ||
-          v.name.toLowerCase().includes('guy') ||
-          v.name.toLowerCase().includes('george') ||
-          v.name.toLowerCase().includes('male'))
+    // 5. Natural English Male/Teacher voices (David, Guy, George, Mark, Ryan)
+    const maleEnglish = maleCandidateVoices.find(
+      (v) => v.lang.startsWith('en') && this.isMaleVoice(v)
     );
-    if (maleVoice) return maleVoice;
+    if (maleEnglish) return maleEnglish;
 
-    // 5. Fallback first matching language or default
+    // 6. Any other non-female English or matching voice
     return (
-      this.voices.find((v) => v.lang.startsWith(lowerLang)) ||
-      this.voices.find((v) => v.lang.startsWith('en')) ||
-      this.voices[0] ||
+      maleCandidateVoices.find((v) => v.lang.startsWith(lowerLang)) ||
+      maleCandidateVoices.find((v) => v.lang.startsWith('en')) ||
+      maleCandidateVoices[0] ||
       null
     );
   }
@@ -199,15 +263,15 @@ export class GurujiSpeechEngine {
 
     const voice = this.selectBestVoice(langToUse);
     const langPrefix = langToUse.slice(0, 2).toLowerCase();
-    const hasNativeLocalVoice = voice && voice.lang.toLowerCase().startsWith(langPrefix);
+    const hasNativeLocalVoice = voice && voice.lang.toLowerCase().startsWith(langPrefix) && !this.isFemaleVoice(voice);
 
-    // If client browser does not have a native voice pack for regional languages (e.g. Tamil, Telugu, Kannada, Malayalam, etc.), use the high-fidelity streaming TTS fallback!
+    // If client browser does not have a native male voice pack for regional languages, use the streaming TTS fallback!
     if (!hasNativeLocalVoice && ['ta', 'te', 'kn', 'ml', 'bn', 'mr', 'gu'].includes(langPrefix)) {
       this.speakViaAudioStream(cleanedText, langToUse);
       return;
     }
 
-    if (!this.synth) {
+    if (!this.synth || (voice && this.isFemaleVoice(voice))) {
       this.speakViaAudioStream(cleanedText, langToUse);
       return;
     }
@@ -237,7 +301,8 @@ export class GurujiSpeechEngine {
 
       utterance.rate = Math.max(0.5, Math.min(2.0, this.settings.speed));
       utterance.volume = Math.max(0, Math.min(1.0, this.settings.volume));
-      utterance.pitch = 1.0;
+      // Confident, deep masculine professor pitch
+      utterance.pitch = 0.9;
 
       utterance.onstart = () => {
         this.isSpeaking = true;

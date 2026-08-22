@@ -58,138 +58,6 @@ interface CourseReview {
   updated_at: string;
 }
 
-// ─── Clean Formatted Course Description Component ─────────────────────────────
-function renderFormattedInline(str: string) {
-  const parts = str.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-      return (
-        <strong key={i} className="font-black text-zinc-950 dark:text-white">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return part;
-  });
-}
-
-function FormattedDescription({ text }: { text: string }) {
-  if (!text) return null;
-
-  // Clean raw prompt echoes and stray artifacts
-  const sanitizedText = text
-    .replace(/^Course Title:.*?(Category:.*?)?(Target Level:.*?)?(\n+|$)/gi, '')
-    .replace(/^(Category|Target Level):.*?(\n+|$)/gim, '')
-    .trim();
-
-  const paragraphs = sanitizedText.split(/\n\n+/).filter((p) => p.trim().length > 0);
-
-  return (
-    <div className="space-y-6 text-zinc-700 dark:text-zinc-300 leading-relaxed font-sans">
-      {paragraphs.map((para, pIdx) => {
-        const rawLines = para
-          .split('\n')
-          .map((l) => l.trim())
-          .filter((l) => l.length > 0 && l !== '-' && l !== '--' && l !== '•' && l !== '• --');
-
-        if (rawLines.length === 0) return null;
-
-        // Check if all lines are bullets
-        const isBulletList = rawLines.every((line) => line.startsWith('-') || line.startsWith('•') || line.startsWith('*'));
-
-        if (isBulletList) {
-          return (
-            <div key={pIdx} className="space-y-2.5 pt-1">
-              {rawLines.map((line, lIdx) => {
-                const cleanItem = line.replace(/^[\-\•\*]\s*/, '').trim();
-                if (!cleanItem || cleanItem === '--' || cleanItem === '-') return null;
-
-                // Check for "Title – Description" pattern
-                const dashSplit = cleanItem.split(/\s+[–—-]\s+/);
-                const hasLabel = dashSplit.length === 2 && dashSplit[0].length < 40;
-
-                return (
-                  <div
-                    key={lIdx}
-                    className="flex items-start space-x-3 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 transition hover:border-sky-500/50 shadow-2xs"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-sky-500 mt-2 shrink-0 shadow-xs ring-4 ring-sky-500/15" />
-                    <div className="text-sm leading-relaxed flex-1">
-                      {hasLabel ? (
-                        <>
-                          <strong className="font-black text-zinc-950 dark:text-white mr-1.5">
-                            {dashSplit[0]}:
-                          </strong>
-                          <span>{renderFormattedInline(dashSplit[1])}</span>
-                        </>
-                      ) : (
-                        renderFormattedInline(cleanItem)
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        }
-
-        // Check if paragraph is a single short section title like "Course Overview" or "Prerequisites:"
-        const isSectionHeader =
-          rawLines.length === 1 &&
-          rawLines[0].length < 50 &&
-          (rawLines[0].endsWith(':') ||
-            /^(course overview|key highlights|learning objectives|prerequisites|curriculum structure|about this course|who should attend)/i.test(
-              rawLines[0]
-            ));
-
-        if (isSectionHeader) {
-          return (
-            <h4
-              key={pIdx}
-              className="text-base sm:text-lg font-black tracking-tight text-zinc-950 dark:text-white pt-3 border-b border-zinc-100 dark:border-zinc-800 pb-2 flex items-center space-x-2"
-            >
-              <span className="w-2 h-4 rounded-full bg-sky-500 inline-block" />
-              <span>{rawLines[0].replace(/:$/, '')}</span>
-            </h4>
-          );
-        }
-
-        return (
-          <div key={pIdx} className="space-y-3">
-            {rawLines.map((line, lIdx) => {
-              // If line starts with "Course Overview" or similar
-              const headerMatch = line.match(
-                /^(Course Overview|Key Highlights|Learning Path|Target Audience|Prerequisites)[:\s]*/i
-              );
-              if (headerMatch && line.length > headerMatch[0].length) {
-                const headText = headerMatch[1];
-                const restText = line.slice(headerMatch[0].length).trim();
-                return (
-                  <div key={lIdx} className="space-y-1.5">
-                    <h4 className="text-base font-black text-zinc-950 dark:text-white flex items-center space-x-2 pt-2">
-                      <span className="w-1.5 h-3.5 rounded-full bg-sky-500" />
-                      <span>{headText}</span>
-                    </h4>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                      {renderFormattedInline(restText)}
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <p key={lIdx} className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {renderFormattedInline(line)}
-                </p>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Star Rating Display Component ────────────────────────────────────────────
 function StarDisplay({ rating, size = 'sm' }: { rating: number; size?: 'xs' | 'sm' | 'md' | 'lg' }) {
   const sizeClass = size === 'xs' ? 'w-3 h-3' : size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6';
@@ -875,22 +743,13 @@ export default function RedesignedCourseDetailsPage({ params }: { params?: { id?
 
             {/* 2. Detailed Description */}
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-950 dark:text-white">
-                  About this Course
-                </h2>
-              </div>
+              <h2 className="text-2xl font-black tracking-tight">About this Course</h2>
               <div
-                className={`p-7 sm:p-9 rounded-3xl border shadow-sm ${
-                  isLight
-                    ? 'bg-white border-zinc-200/90 text-zinc-800 shadow-zinc-200/40'
-                    : 'bg-zinc-950/80 border-zinc-800 text-zinc-200 backdrop-blur-md'
+                className={`p-6 rounded-3xl border text-sm leading-relaxed whitespace-pre-line ${
+                  isLight ? 'bg-white border-zinc-200 text-zinc-700' : 'bg-zinc-950 border-zinc-800 text-zinc-300'
                 }`}
               >
-                <FormattedDescription text={course.detailed_description || course.description || course.summary || ''} />
+                {course.detailed_description || course.description || course.summary}
               </div>
             </div>
 

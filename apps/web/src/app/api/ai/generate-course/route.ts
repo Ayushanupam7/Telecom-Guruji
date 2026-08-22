@@ -125,80 +125,9 @@ Generate high-quality telecom engineering content with realistic diagrams/charts
 
     const aiResult = await executeAIWithFallback(prompt, systemPrompt, { asJSON: true });
 
-    let courseData = aiResult.data as any;
-
-    // Multi-Language Translation Generation for AI generated course
-    if (courseData && typeof courseData === 'object' && courseData.title) {
-      try {
-        const TARGET_LANGS = ['hi', 'ta', 'te', 'kn', 'ml', 'bn', 'mr', 'gu', 'hinglish'] as const;
-
-        const quickTranslate = async (txt: string, l: string) => {
-          if (!txt || !txt.trim()) return txt;
-          const targetLang = l === 'hinglish' ? 'hi' : l;
-          try {
-            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(
-              txt
-            )}`;
-            const res = await fetch(url, {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              },
-            });
-            if (res.ok) {
-              const d = await res.json();
-              if (Array.isArray(d) && Array.isArray(d[0])) {
-                return d[0].map((item: any) => (item && item[0] ? item[0] : '')).join('');
-              }
-            }
-          } catch (e) {}
-          return txt;
-        };
-
-        // 1. Course level translations
-        const cTranslations: Record<string, any> = courseData.translations || {};
-        for (const l of TARGET_LANGS) {
-          if (!cTranslations[l]) cTranslations[l] = {};
-          cTranslations[l].title = await quickTranslate(courseData.title, l);
-          if (courseData.summary) {
-            cTranslations[l].summary = await quickTranslate(courseData.summary, l);
-          }
-        }
-        courseData.translations = cTranslations;
-
-        // 2. Module & Slide translations
-        if (Array.isArray(courseData.modules)) {
-          for (const m of courseData.modules) {
-            const mTranslations: Record<string, any> = m.translations || {};
-            for (const l of TARGET_LANGS) {
-              if (!mTranslations[l]) mTranslations[l] = {};
-              mTranslations[l].title = await quickTranslate(m.title, l);
-              if (m.description) {
-                mTranslations[l].description = await quickTranslate(m.description, l);
-              }
-            }
-            m.translations = mTranslations;
-
-            if (Array.isArray(m.slides)) {
-              for (const s of m.slides) {
-                const sTranslations: Record<string, any> = s.translations || {};
-                for (const l of TARGET_LANGS) {
-                  if (!sTranslations[l]) sTranslations[l] = {};
-                  sTranslations[l].title = await quickTranslate(s.title, l);
-                }
-                s.translations = sTranslations;
-              }
-            }
-          }
-        }
-      } catch (transErr) {
-        console.warn('Auto-generating course multi-language bundle notice:', transErr);
-      }
-    }
-
     return NextResponse.json({
       success: true,
-      data: courseData,
+      data: aiResult.data,
       providerUsed: aiResult.providerUsed,
       fallbackUsed: aiResult.fallbackUsed,
       model: aiResult.model,

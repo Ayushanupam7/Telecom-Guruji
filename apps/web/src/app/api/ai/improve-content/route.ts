@@ -17,48 +17,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'No content provided' }, { status: 400 });
     }
 
-    let systemPrompt =
-      'You are an expert Telecom educator and technical copywriter for "Telecom Guruji". Provide clean, professional plain text without raw markdown symbols like double asterisks (**), hashes (#), or backticks. Write structured, readable paragraphs and clean bullet points using standard bullet dots (•) or dashes.';
+    let systemPrompt = 'You are an expert Telecom educator and technical copywriter for "Telecom Guruji".';
     let prompt = '';
 
     switch (action) {
       case 'improve':
-        prompt = `Please rewrite and improve the following educational content to make it clearer, more engaging, and technically precise. Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Please rewrite and improve the following educational content to make it clearer, more engaging, and technically precise:\n\n"${content}"`;
         break;
       case 'simplify':
-        prompt = `Please simplify the following technical content so that beginners can easily understand it without losing accuracy. Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Please simplify the following technical content so that beginners can easily understand it without losing accuracy:\n\n"${content}"`;
         break;
       case 'expand':
-        prompt = `Please expand the following content with additional technical depth, real-world telecommunication examples, and key bullet points. Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Please expand the following content with additional technical depth, real-world telecommunication examples, and key bullet points:\n\n"${content}"`;
         break;
       case 'summarize':
-        prompt = `Please provide a concise 2-3 bullet point summary of the following content. Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Please provide a concise 2-3 bullet point summary of the following content:\n\n"${content}"`;
         break;
       case 'translate':
-        prompt = `Please translate the following educational content to ${targetLanguage || 'Hindi'} while preserving technical acronyms (like 5G, LTE, QAM, DSP, MIMO). Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Please translate the following educational content to ${targetLanguage || 'Hindi'} while preserving technical acronyms (like 5G, LTE, QAM, DSP, MIMO):\n\n"${content}"`;
         break;
       case 'generate_example':
-        prompt = `Provide a real-world telecommunications engineering example, formula, or case study illustrating this concept. Do NOT use ** markdown asterisks:\n\n"${content}"`;
+        prompt = `Provide a real-world telecommunications engineering example, formula, or case study illustrating this concept:\n\n"${content}"`;
         break;
       default:
-        prompt = `Instruction: ${instruction || 'Refine this content'}\nDo NOT use ** markdown asterisks.\n\nContent:\n"${content}"`;
+        prompt = `Instruction: ${instruction || 'Refine this content'}\n\nContent:\n"${content}"`;
         break;
     }
 
     const aiResult = await executeAIWithFallback(prompt, systemPrompt, { asJSON: false });
 
-    let cleanResult = typeof aiResult.data === 'string' ? aiResult.data : JSON.stringify(aiResult.data || '');
-    // Clean raw markdown symbols like **bold** -> bold, # headers -> header, etc.
-    cleanResult = cleanResult
-      .replace(/\*\*(.*?)\*\*/g, '$1')
-      .replace(/__(.*?)__/g, '$1')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/^#+\s*/gm, '')
-      .trim();
-
     return NextResponse.json({
       success: true,
-      result: cleanResult,
+      result: aiResult.data,
       providerUsed: aiResult.providerUsed,
       fallbackUsed: aiResult.fallbackUsed,
       model: aiResult.model,

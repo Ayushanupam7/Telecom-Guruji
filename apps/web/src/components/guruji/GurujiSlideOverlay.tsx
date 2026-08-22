@@ -98,7 +98,13 @@ export function GurujiSlideOverlay({
   // 1. Controller & Lip Sync Engine Instances
   const animationController = useMemo(() => new GurujiAnimationController(), []);
   const lipSync = useMemo(
-    () => new GurujiLipSync((v) => animationController.setViseme(v)),
+    () =>
+      new GurujiLipSync((v) => {
+        animationController.setViseme(v);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('guruji-viseme-sync', { detail: { viseme: v } }));
+        }
+      }),
     [animationController]
   );
 
@@ -173,12 +179,37 @@ export function GurujiSlideOverlay({
   const containerRef = useRef<HTMLDivElement>(null);
   const previousSlideIdRef = useRef<string>(activeSlide.id);
 
-  // Subscribe to controller
+  // Subscribe to controller and broadcast state
   useEffect(() => {
     const unsub = animationController.subscribe((s) => {
       setAvatarState(s.state);
     });
     return unsub;
+  }, [animationController]);
+
+  // Listen to viseme & state synchronizations from Card 4
+  useEffect(() => {
+    const handleVisemeSync = (e: any) => {
+      if (e.detail?.viseme) {
+        animationController.setViseme(e.detail.viseme);
+      }
+    };
+    const handleStateSync = (e: any) => {
+      if (e.detail?.state) {
+        animationController.setState(e.detail.state);
+        setAvatarState(e.detail.state);
+      }
+      if (e.detail?.lookDirection) {
+        animationController.setLookDirection(e.detail.lookDirection);
+      }
+    };
+
+    window.addEventListener('guruji-viseme-sync', handleVisemeSync);
+    window.addEventListener('guruji-state-sync', handleStateSync);
+    return () => {
+      window.removeEventListener('guruji-viseme-sync', handleVisemeSync);
+      window.removeEventListener('guruji-state-sync', handleStateSync);
+    };
   }, [animationController]);
 
   // 4. Slide change handling & Auto-Explanation
@@ -224,35 +255,38 @@ export function GurujiSlideOverlay({
     }
   }, [siteLanguage, speechEngine]);
 
-  // 5. Explain Slide via AI with instant Cancellation / Stop support
-  const analysisAbortControllerRef = useRef<AbortController | null>(null);
+  // Listen to explanations synchronized from Card 4
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      const { slideId, data } = e.detail || {};
+      if (slideId === activeSlide.id && data?.speechText) {
+        setCurrentSpeechText(data.speechText);
+      }
+    };
+    window.addEventListener('guruji-explanation-sync', handleSync);
+    return () => window.removeEventListener('guruji-explanation-sync', handleSync);
+  }, [activeSlide.id]);
 
-  const handleStopAnalysisAndSpeech = () => {
-    if (analysisAbortControllerRef.current) {
-      try {
-        analysisAbortControllerRef.current.abort();
-      } catch (e) {}
-      analysisAbortControllerRef.current = null;
-    }
-    setIsAnalyzing(false);
-    speechEngine.stop();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    animationController.setState('idle');
-  };
+  // Listen to speech state synchronizations
+  useEffect(() => {
+    const handleSpeechSync = (e: any) => {
+      if (typeof e.detail?.isSpeaking === 'boolean') {
+        setIsSpeaking(e.detail.isSpeaking);
+      }
+      if (typeof e.detail?.isPaused === 'boolean') {
+        setIsPaused(e.detail.isPaused);
+      }
+    };
+    window.addEventListener('guruji-speech-sync', handleSpeechSync);
+    return () => window.removeEventListener('guruji-speech-sync', handleSpeechSync);
+  }, []);
 
+  // 5. Explain Slide via AI
   const handleExplainSlide = async () => {
-    // If already analyzing, toggle/stop it
-    if (isAnalyzing) {
-      handleStopAnalysisAndSpeech();
+    if (isCardOpen) {
+      window.dispatchEvent(new CustomEvent('guruji-remote-trigger-explain'));
       return;
     }
-
-    if (analysisAbortControllerRef.current) {
-      analysisAbortControllerRef.current.abort();
-    }
-    const abortCtrl = new AbortController();
-    analysisAbortControllerRef.current = abortCtrl;
 
     setIsAnalyzing(true);
     speechEngine.stop();
@@ -260,6 +294,24 @@ export function GurujiSlideOverlay({
     animationController.setLookDirection('left_slide');
 
     const activeLang = voiceSettings.language || siteLanguage || 'en';
+
+    // 1. Check cached explanation first
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`tg_explanation_${activeSlide.id}_${activeLang}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.speechText) {
+            setCurrentSpeechText(parsed.speechText);
+            setIsAnalyzing(false);
+            if (!isCardOpen) {
+              speechEngine.speak(parsed.speechText, activeLang);
+            }
+            return;
+          }
+        }
+      } catch (e) {}
+    }
 
     try {
       const slideCtx = GurujiContextBuilder.buildSlideContext(
@@ -273,7 +325,6 @@ export function GurujiSlideOverlay({
       const res = await fetch('/api/ai/guruji', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: abortCtrl.signal,
         body: JSON.stringify({
           action: 'explain_slide',
           language: activeLang,
@@ -282,15 +333,23 @@ export function GurujiSlideOverlay({
         }),
       });
 
-      if (abortCtrl.signal.aborted) return;
-
       const data = await res.json();
       if (data.success && data.data && data.data.speechText) {
         setCurrentSpeechText(data.data.speechText);
-        if (!isCardOpen && !abortCtrl.signal.aborted) {
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem(`tg_explanation_${activeSlide.id}_${activeLang}`, JSON.stringify(data.data));
+            window.dispatchEvent(
+              new CustomEvent('guruji-explanation-sync', {
+                detail: { slideId: activeSlide.id, language: activeLang, data: data.data },
+              })
+            );
+          } catch (e) {}
+        }
+        if (!isCardOpen) {
           speechEngine.speak(data.data.speechText, activeLang);
         }
-      } else if (!abortCtrl.signal.aborted) {
+      } else {
         const fallbackMap: Record<string, string> = {
           hi: `यहाँ ${activeSlide.title} है। इस स्लाइड में दिए गए मुख्य घटकों और परिभाषाओं को ध्यान से समझें।`,
           hinglish: `Yeh hai ${activeSlide.title}. Is slide ke core components aur concepts ko dhyan se samajhte hain.`,
@@ -309,26 +368,32 @@ export function GurujiSlideOverlay({
           speechEngine.speak(fallback, activeLang);
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError' || abortCtrl.signal.aborted) {
-        animationController.setState('idle');
-        return;
-      }
+    } catch (err) {
       console.error('Error analyzing slide for overlay:', err);
       animationController.setState('idle');
     } finally {
-      if (!abortCtrl.signal.aborted) {
-        setIsAnalyzing(false);
-      }
+      setIsAnalyzing(false);
     }
   };
 
   // 6. Stop / Play Controls
   const handleStop = () => {
-    handleStopAnalysisAndSpeech();
+    if (isCardOpen) {
+      window.dispatchEvent(new CustomEvent('guruji-remote-toggle-play'));
+      return;
+    }
+    speechEngine.stop();
+    setIsSpeaking(false);
+    setIsPaused(false);
+    animationController.setState('idle');
   };
 
   const handlePlayPause = () => {
+    if (isCardOpen) {
+      window.dispatchEvent(new CustomEvent('guruji-remote-toggle-play'));
+      return;
+    }
+
     if (isSpeaking && !isPaused) {
       speechEngine.pause();
     } else if (isPaused) {
@@ -400,8 +465,8 @@ export function GurujiSlideOverlay({
     }
   };
 
-  // If Card 4 is opened or user manually closed overlay
-  if (!isVisible || isCardOpen) return null;
+  // If user manually closed overlay
+  if (!isVisible) return null;
 
   // Compute position styles: if dragged, use fixed coordinates; otherwise default dock on right of slide
   const positionStyle: React.CSSProperties = position
@@ -453,26 +518,16 @@ export function GurujiSlideOverlay({
               {isSpeaking && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-1" />}
             </div>
 
-            {/* Quick Re-Analyse / Stop Button */}
-            {isAnalyzing ? (
-              <button
-                type="button"
-                onClick={handleStop}
-                className="p-1 rounded-full text-red-400 hover:text-red-300 hover:bg-red-500/20 transition cursor-pointer animate-pulse"
-                title="Stop Slide Analysis"
-              >
-                <Square className="w-3 h-3 fill-current" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleExplainSlide}
-                className="p-1 rounded-full text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 transition cursor-pointer"
-                title="Re-analyse and explain this slide"
-              >
-                <Sparkles className="w-3 h-3" />
-              </button>
-            )}
+            {/* Quick Re-Analyse Button */}
+            <button
+              type="button"
+              onClick={handleExplainSlide}
+              disabled={isAnalyzing}
+              className="p-1 rounded-full text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 transition cursor-pointer disabled:opacity-50"
+              title="Re-analyse and explain this slide"
+            >
+              <Sparkles className={`w-3 h-3 ${isAnalyzing ? 'animate-spin' : ''}`} />
+            </button>
 
             {/* Quick Play/Pause */}
             <button
@@ -483,18 +538,6 @@ export function GurujiSlideOverlay({
             >
               {isSpeaking && !isPaused ? <Pause className="w-3 h-3 text-sky-400" /> : <Play className="w-3 h-3" />}
             </button>
-
-            {/* Quick Stop Button when speaking */}
-            {isSpeaking && !isAnalyzing && (
-              <button
-                type="button"
-                onClick={handleStop}
-                className="p-1 rounded-full text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition cursor-pointer"
-                title="Stop Speech"
-              >
-                <Square className="w-2.5 h-2.5 fill-current" />
-              </button>
-            )}
 
             {/* Reveal Arrow Button */}
             <button
@@ -568,18 +611,14 @@ export function GurujiSlideOverlay({
 
             <div className="w-px h-3.5 bg-zinc-700/60 mx-0.5" />
 
-            {/* Stop Analysis & Speech Button */}
+            {/* Stop Button */}
             <button
               type="button"
               onClick={handleStop}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                isAnalyzing || isSpeaking
-                  ? 'text-red-400 bg-red-500/15 hover:bg-red-500/25 ring-1 ring-red-500/30 shadow-xs'
-                  : 'text-zinc-400 hover:text-red-400 hover:bg-zinc-800'
-              }`}
-              title="Stop AI Analysis & Speech"
+              className="p-1.5 rounded-lg text-zinc-300 hover:text-red-400 hover:bg-zinc-800 transition cursor-pointer"
+              title="Stop Speech"
             >
-              <Square className="w-3.5 h-3.5 fill-current" />
+              <Square className="w-3.5 h-3.5" />
             </button>
 
             {/* Play / Pause Button */}
@@ -592,28 +631,17 @@ export function GurujiSlideOverlay({
               {isSpeaking && !isPaused ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Analyse / Stop Analysis Button */}
-            {isAnalyzing ? (
-              <button
-                type="button"
-                onClick={handleStop}
-                className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-[10px] font-semibold transition cursor-pointer animate-pulse"
-                title="Stop Slide Analysis"
-              >
-                <Square className="w-2.5 h-2.5 fill-current text-red-400" />
-                <span>Stop</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleExplainSlide}
-                className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/35 text-[10px] font-semibold transition cursor-pointer"
-                title="Re-analyse and explain this slide"
-              >
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>Analyse</span>
-              </button>
-            )}
+            {/* Small Analyse Button */}
+            <button
+              type="button"
+              onClick={handleExplainSlide}
+              disabled={isAnalyzing}
+              className="flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/35 text-[10px] font-semibold transition disabled:opacity-50 cursor-pointer"
+              title="Re-analyse and explain this slide"
+            >
+              <Sparkles className={`w-3 h-3 text-amber-400 ${isAnalyzing ? 'animate-spin' : ''}`} />
+              <span>{isAnalyzing ? '...' : 'Analyse'}</span>
+            </button>
 
             {/* Open Full Q&A Card Button */}
             <button

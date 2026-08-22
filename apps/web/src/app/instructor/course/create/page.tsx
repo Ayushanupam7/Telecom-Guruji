@@ -673,21 +673,6 @@ function CourseCreationWizardContent() {
         updated_at: new Date().toISOString(),
       };
 
-      // Automatically generate multi-language translations package for all 10 languages
-      try {
-        const transRes = await fetch('/api/ai/generate-course-translations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ course: { ...coursePayload, modules } }),
-        });
-        const transData = await transRes.json();
-        if (transData.success && transData.data) {
-          (coursePayload as any).translations = transData.data.translations;
-        }
-      } catch (transErr) {
-        console.warn('Auto multi-language course translation notice:', transErr);
-      }
-
       await supabaseAdmin.from('courses').upsert(coursePayload, { onConflict: 'id' });
 
       for (const mod of modules) {
@@ -703,7 +688,6 @@ function CourseCreationWizardContent() {
           learning_outcomes: mod.learning_outcomes,
           slides_data: mod.slides || mod.slides_data || [],
           quiz_data: mod.quiz || mod.quiz_data || {},
-          translations: (mod as any).translations || undefined,
           updated_at: new Date().toISOString(),
         };
         await supabaseAdmin.from('modules').upsert(modPayload, { onConflict: 'id' });

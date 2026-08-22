@@ -8,7 +8,7 @@ interface GurujiVoiceSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: GurujiVoiceSettings;
-  availableVoices: Array<{ id: string; name: string; lang: string; isIndian: boolean }>;
+  availableVoices: Array<{ id: string; name: string; lang: string; isIndian: boolean; isMale?: boolean }>;
   onSave: (newSettings: GurujiVoiceSettings) => void;
   onTestVoice?: (text: string, lang: string) => void;
 }
@@ -165,16 +165,16 @@ export function GurujiVoiceSettingsModal({
           {/* 4. Voice Selection (Detected Web Speech Voices) */}
           {availableVoices.length > 0 && (
             <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-300">Preferred Speech Engine Voice</label>
+              <label className="text-xs font-bold text-zinc-300">Preferred Speech Engine Voice (Male Teacher)</label>
               <select
                 value={localSettings.voiceId}
                 onChange={(e) => setLocalSettings({ ...localSettings, voiceId: e.target.value })}
                 className="w-full p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 focus:outline-hidden focus:border-sky-500"
               >
-                <option value="">Default Recommended Voice (Auto Match)</option>
+                <option value="">Default Recommended Male Voice (Auto Match)</option>
                 {availableVoices.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name} ({v.lang}) {v.isIndian ? '🇮🇳' : ''}
+                    👨 {v.name} ({v.lang}) {v.isIndian ? '🇮🇳' : ''}
                   </option>
                 ))}
               </select>

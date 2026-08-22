@@ -249,54 +249,6 @@ export function Step7ValidationPublish({
         )}
       </div>
 
-      {/* AI Multi-Language Translation Engine (10 Languages) */}
-      <div className={`p-6 rounded-3xl border space-y-4 ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-black tracking-tight flex items-center space-x-2">
-              <Sparkles className="w-5 h-5 text-amber-500" />
-              <span>AI Multi-Language Generation Engine</span>
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              Telecom Guruji AI automatically translates modules, slides, and quizzes so students can study and listen in their preferred language.
-            </p>
-          </div>
-          <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[11px] font-bold border border-emerald-500/30 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>10 Languages Ready</span>
-          </span>
-        </div>
-
-        {/* 10-Language Badge Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2">
-          {[
-            { code: 'en', name: 'English', native: 'English' },
-            { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-            { code: 'hinglish', name: 'Hinglish', native: 'Hinglish' },
-            { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
-            { code: 'te', name: 'Telugu', native: 'తెలుగు' },
-            { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
-            { code: 'ml', name: 'Malayalam', native: 'മലയാളം' },
-            { code: 'bn', name: 'Bengali', native: 'বাংলা' },
-            { code: 'mr', name: 'Marathi', native: 'मराठी' },
-            { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી' },
-          ].map((l) => (
-            <div
-              key={l.code}
-              className={`p-2.5 rounded-xl border flex items-center justify-between ${
-                isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-900/60 border-zinc-800'
-              }`}
-            >
-              <div>
-                <div className="text-xs font-bold">{l.native}</div>
-                <div className="text-[10px] text-zinc-500">{l.name}</div>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs" />
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Publishing State Options */}
       <div className={`p-6 rounded-3xl border space-y-5 ${isLight ? 'bg-white border-zinc-200' : 'bg-zinc-950 border-zinc-800'}`}>
         <h3 className="text-base font-black tracking-tight flex items-center space-x-2">
