@@ -1,39 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
-  Play,
-  Pause,
-  Square,
-  RotateCcw,
-  Volume2,
   Mic,
   MicOff,
   Sparkles,
   BookOpen,
   Send,
-  Sliders,
-  Maximize2,
-  Minimize2,
   MessageSquare,
-  ChevronDown,
-  Layers,
   HelpCircle,
   CheckCircle2,
-  AlertCircle,
   Lightbulb,
   Award,
   PanelRightClose,
-  PanelRightOpen
+  FileText,
+  Sliders
 } from 'lucide-react';
-import { Course, CourseSlide, GurujiAvatarState, GurujiContextMode, GurujiMessage, GurujiVoiceSettings, Module } from '@signalhub/types';
-import { GurujiAnimationController } from './GurujiAnimationController';
-import { GurujiLipSync } from './GurujiLipSync';
-import { GurujiSpeechEngine } from './GurujiSpeechEngine';
+import { Course, CourseSlide, GurujiContextMode, GurujiMessage, GurujiVoiceSettings, Module } from '@signalhub/types';
 import { GurujiContextBuilder } from './GurujiContextBuilder';
-import { GurujiVoiceSettingsModal } from './GurujiVoiceSettingsModal';
 import { GurujiCourseScanModal } from './GurujiCourseScanModal';
+import { GurujiVoiceSettingsModal } from './GurujiVoiceSettingsModal';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -62,19 +49,10 @@ export function GurujiOverlay({
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
-  // 1. Controller & Engine Instances (Persisted across renders)
-  const animationController = useMemo(() => new GurujiAnimationController(), []);
-  const lipSync = useMemo(
-    () =>
-      new GurujiLipSync((v) => {
-        animationController.setViseme(v);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('guruji-viseme-sync', { detail: { viseme: v } }));
-        }
-      }),
-    [animationController]
-  );
-
+  // 1. UI & Interaction States
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [voiceSettings, setVoiceSettings] = useState<GurujiVoiceSettings>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -91,88 +69,16 @@ export function GurujiOverlay({
     };
   });
 
-  const [speechEngine] = useState<GurujiSpeechEngine>(
-    () =>
-      new GurujiSpeechEngine(lipSync, {
-        onStart: () => {
-          setIsSpeaking(true);
-          setIsPaused(false);
-          animationController.setState('speaking');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: false } }));
-          }
-        },
-        onEnd: () => {
-          setIsSpeaking(false);
-          setIsPaused(false);
-          animationController.setState('idle');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: false, isPaused: false } }));
-          }
-        },
-        onPause: () => {
-          setIsPaused(true);
-          animationController.setState('paused');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: true } }));
-          }
-        },
-        onResume: () => {
-          setIsPaused(false);
-          animationController.setState('speaking');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: true, isPaused: false } }));
-          }
-        },
-        onError: () => {
-          setIsSpeaking(false);
-          setIsPaused(false);
-          animationController.setState('idle');
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('guruji-speech-sync', { detail: { isSpeaking: false, isPaused: false } }));
-          }
-        },
-        onListeningStateChange: (listening) => {
-          setIsListening(listening);
-          if (listening) {
-            animationController.setState('listening');
-          } else {
-            animationController.setState('idle');
-          }
-        },
-        onListeningResult: (transcript) => {
-          if (transcript) {
-            handleSendQuestion(transcript);
-          }
-        },
-      })
-  );
-
-  // Sync siteLanguage changes to voice settings and speech engine
+  // Sync settings across components
   useEffect(() => {
-    if (siteLanguage) {
-      setVoiceSettings((prev) => ({ ...prev, language: siteLanguage }));
-      speechEngine.updateSettings({ language: siteLanguage });
-    }
-  }, [siteLanguage, speechEngine]);
-
-  // Sync settings to engine
-  useEffect(() => {
-    speechEngine.updateSettings(voiceSettings);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('tg_guruji_voice_settings', JSON.stringify(voiceSettings));
-      } catch (e) {}
-    }
-  }, [voiceSettings, speechEngine]);
-
-  // 2. UI & Interaction States
-  const [avatarState, setAvatarState] = useState<GurujiAvatarState>('idle');
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isLoadingAI, setIsLoadingAI] = useState(false);
-  const [isFirstOpenInSession, setIsFirstOpenInSession] = useState(true);
+    const handleSettingsSync = (e: any) => {
+      if (e.detail?.settings) {
+        setVoiceSettings(e.detail.settings);
+      }
+    };
+    window.addEventListener('guruji-settings-sync', handleSettingsSync);
+    return () => window.removeEventListener('guruji-settings-sync', handleSettingsSync);
+  }, []);
 
   // Current Slide Explanation Data
   const [currentExplanation, setCurrentExplanation] = useState<{
@@ -187,7 +93,6 @@ export function GurujiOverlay({
   const [chatMessages, setChatMessages] = useState<GurujiMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [activeTab, setActiveTab] = useState<'explanation' | 'chat'>('explanation');
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [courseKnowledge, setCourseKnowledge] = useState<any>(() =>
     GurujiContextBuilder.getCachedCourseKnowledge(course.id)
@@ -195,78 +100,24 @@ export function GurujiOverlay({
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const previousSlideIdRef = useRef<string>(activeSlide.id);
+  const recognitionRef = useRef<any>(null);
 
-  // Subscribe to controller state changes & broadcast to floating avatar
-  useEffect(() => {
-    const unsub = animationController.subscribe((s) => {
-      setAvatarState(s.state);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('guruji-state-sync', {
-            detail: { state: s.state, gesture: s.gesture, lookDirection: s.lookDirection },
-          })
-        );
-      }
-    });
-    return unsub;
-  }, [animationController]);
-
-  // 3. CINEMATIC WALK-IN LIFECYCLE WHEN OPENED
-  useEffect(() => {
-    let timer1: any;
-    let timer2: any;
-    let timer3: any;
-
-    if (isOpen) {
-      // Phase 1: Start walking in
-      animationController.setState('walking');
-
-      // Phase 2: Walk in takes 1.1s -> arrive & settle
-      timer1 = setTimeout(() => {
-        animationController.setState('arriving');
-        // Phase 3: Settle & turn towards slide
-        timer2 = setTimeout(() => {
-          animationController.setState('idle');
-          animationController.setLookDirection('left_slide');
-
-          // Phase 4: Automatically explain current slide
-          timer3 = setTimeout(() => {
-            handleExplainCurrentSlide(isFirstOpenInSession);
-            setIsFirstOpenInSession(false);
-          }, 350);
-        }, 300);
-      }, 1000);
-    } else {
-      speechEngine.stop();
-    }
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [isOpen]);
-
-  // 4. SLIDE CHANGE HANDLER (Auto stop audio & sync new slide)
+  // 2. Fetch Explanation on Slide Change or Initial Open
   useEffect(() => {
     if (previousSlideIdRef.current !== activeSlide.id) {
       previousSlideIdRef.current = activeSlide.id;
-
-      // Stop any speech on previous slide
-      speechEngine.stop();
-      setIsSpeaking(false);
-      setIsPaused(false);
-      animationController.setState('idle');
-
       if (isOpen) {
-        if (voiceSettings.autoSpeak) {
-          handleExplainCurrentSlide(false);
-        } else {
-          setCurrentExplanation(null);
-        }
+        handleExplainCurrentSlide(false);
       }
     }
-  }, [activeSlide.id, isOpen, voiceSettings.autoSpeak]);
+  }, [activeSlide.id, isOpen]);
+
+  // Initial fetch when opened
+  useEffect(() => {
+    if (isOpen && !currentExplanation) {
+      handleExplainCurrentSlide(false);
+    }
+  }, [isOpen]);
 
   // Scroll chat to bottom on new message
   useEffect(() => {
@@ -283,51 +134,14 @@ export function GurujiOverlay({
         setCurrentExplanation(data);
       }
     };
-    const handleRemoteToggle = () => {
-      if (isSpeaking && !isPaused) {
-        speechEngine.pause();
-      } else if (isPaused) {
-        speechEngine.resume();
-      } else if (currentExplanation?.speechText) {
-        speechEngine.speak(currentExplanation.speechText, voiceSettings.language);
-      } else {
-        handleExplainCurrentSlide(false);
-      }
-    };
-    const handleRemoteExplain = () => {
-      handleExplainCurrentSlide(false);
-    };
-
     window.addEventListener('guruji-explanation-sync', handleSync);
-    window.addEventListener('guruji-remote-toggle-play', handleRemoteToggle);
-    window.addEventListener('guruji-remote-trigger-explain', handleRemoteExplain);
-    return () => {
-      window.removeEventListener('guruji-explanation-sync', handleSync);
-      window.removeEventListener('guruji-remote-toggle-play', handleRemoteToggle);
-      window.removeEventListener('guruji-remote-trigger-explain', handleRemoteExplain);
-    };
-  }, [activeSlide.id, isSpeaking, isPaused, currentExplanation, voiceSettings.language, speechEngine]);
+    return () => window.removeEventListener('guruji-explanation-sync', handleSync);
+  }, [activeSlide.id]);
 
-  // Collapse with walk-out transition
-  const handleInitiateClose = () => {
-    speechEngine.stop();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    animationController.setState('exiting');
-
-    setTimeout(() => {
-      onClose();
-      animationController.setState('idle');
-    }, 400);
-  };
-
-  // 5. EXPLAIN CURRENT SLIDE
+  // 3. EXPLAIN CURRENT SLIDE (Pure Text Assistant)
   const handleExplainCurrentSlide = async (firstTime: boolean = false) => {
     setIsLoadingAI(true);
-    speechEngine.stop();
-    animationController.setState('thinking');
-
-    const activeLang = voiceSettings.language || siteLanguage || 'en';
+    const activeLang = siteLanguage || 'en';
 
     // 1. Check cached explanation first
     if (typeof window !== 'undefined') {
@@ -339,8 +153,6 @@ export function GurujiOverlay({
             setCurrentExplanation(parsed);
             setActiveTab('explanation');
             setIsLoadingAI(false);
-            animationController.setState('speaking');
-            speechEngine.speak(parsed.speechText, activeLang);
             return;
           }
         }
@@ -375,20 +187,9 @@ export function GurujiOverlay({
         if (typeof window !== 'undefined') {
           try {
             sessionStorage.setItem(`tg_explanation_${activeSlide.id}_${activeLang}`, JSON.stringify(data.data));
-            window.dispatchEvent(
-              new CustomEvent('guruji-explanation-sync', {
-                detail: { slideId: activeSlide.id, language: activeLang, data: data.data },
-              })
-            );
           } catch (e) {}
         }
-
-        // Speak out the explanation
-        if (data.data.speechText) {
-          speechEngine.speak(data.data.speechText, activeLang);
-        }
       } else {
-        const activeLang = voiceSettings.language || siteLanguage || 'en';
         const fallbackMap: Record<string, string> = {
           hi: `यहाँ ${activeSlide.title} है। इस स्लाइड में दिए गए मुख्य घटकों और परिभाषाओं को ध्यान से समझें।`,
           hinglish: `Yeh hai ${activeSlide.title}. Is slide ke core components aur concepts ko dhyan se samajhte hain.`,
@@ -406,17 +207,15 @@ export function GurujiOverlay({
           speechText: fallbackText,
           bulletPoints: [`Key Topic: ${activeSlide.title}`, `Review module definitions and parameters.`],
         });
-        speechEngine.speak(fallbackText, activeLang);
       }
     } catch (err) {
       console.error('Error generating slide explanation:', err);
-      animationController.setState('idle');
     } finally {
       setIsLoadingAI(false);
     }
   };
 
-  // 6. SEND QUESTION (Q&A)
+  // 4. SEND QUESTION (Q&A)
   const handleSendQuestion = async (questionText?: string) => {
     const q = (questionText || inputText).trim();
     if (!q) return;
@@ -435,10 +234,7 @@ export function GurujiOverlay({
       slideTitle: activeSlide.title,
     };
     setChatMessages((prev) => [...prev, userMsg]);
-
     setIsLoadingAI(true);
-    speechEngine.stop();
-    animationController.setState('thinking');
 
     try {
       const slideCtx = GurujiContextBuilder.buildSlideContext(
@@ -460,7 +256,7 @@ export function GurujiOverlay({
         body: JSON.stringify({
           action: 'ask_question',
           question: q,
-          language: voiceSettings.language,
+          language: siteLanguage || 'en',
           contextMode,
           slideContext: slideCtx,
           courseKnowledge,
@@ -484,14 +280,51 @@ export function GurujiOverlay({
         contextMode,
       };
       setChatMessages((prev) => [...prev, gurujiMsg]);
-
-      // Speak answer
-      speechEngine.speak(answer, voiceSettings.language);
     } catch (err) {
       console.error('Error answering question:', err);
-      animationController.setState('idle');
     } finally {
       setIsLoadingAI(false);
+    }
+  };
+
+  // 5. Speech-to-Text Microphone Input for Questions
+  const toggleSpeechRecognition = () => {
+    if (typeof window === 'undefined') return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = siteLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setInputText(transcript);
+          handleSendQuestion(transcript);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.error('Speech recognition error:', e);
+      setIsListening(false);
     }
   };
 
@@ -506,7 +339,7 @@ export function GurujiOverlay({
   return (
     <>
       {/* ======================================================================= */}
-      {/* CARD 4: RIGHT GURUJI AI AVATAR CARD (INTEGRATED COURSE PLAYER COLUMN) */}
+      {/* CARD 4: RIGHT GURUJI AI ASSISTANT CARD (TEXT & Q&A STUDY GUIDE)         */}
       {/* ======================================================================= */}
       <aside
         className={`
@@ -533,10 +366,10 @@ export function GurujiOverlay({
                 <div className="min-w-0">
                   <div className="flex items-center space-x-1.5">
                     <span className="text-xs font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 truncate">
-                      Guruji AI
+                      Guruji AI Study Guide
                     </span>
                     <span className="px-1.5 py-0.2 rounded-md bg-sky-500/10 border border-sky-500/20 text-[9px] font-mono font-bold text-sky-600 dark:text-sky-400">
-                      {voiceSettings.language.toUpperCase()}
+                      {(siteLanguage || 'en').toUpperCase()}
                     </span>
                   </div>
                   <div className="text-[10px] text-zinc-400 truncate">
@@ -545,14 +378,13 @@ export function GurujiOverlay({
                 </div>
               </div>
 
-              {/* Header Control Buttons */}
-              <div className="flex items-center space-x-1 shrink-0">
-                {/* Voice Settings Button */}
+              <div className="flex items-center space-x-1.5 shrink-0">
+                {/* Voice & AI Settings Button */}
                 <button
                   type="button"
                   onClick={() => setIsVoiceModalOpen(true)}
-                  className="p-1.5 rounded-xl text-zinc-400 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                  title="Voice & Language Settings"
+                  className="p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition text-[10px] font-bold cursor-pointer"
+                  title="Guruji Voice & AI Settings"
                 >
                   <Sliders className="w-3.5 h-3.5" />
                 </button>
@@ -560,8 +392,8 @@ export function GurujiOverlay({
                 {/* Desktop Collapse Button */}
                 <button
                   type="button"
-                  onClick={handleInitiateClose}
-                  className="flex items-center space-x-1 px-2 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition text-[10px] font-bold"
+                  onClick={onClose}
+                  className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition text-[10px] font-bold cursor-pointer"
                   title="Collapse Guruji Card"
                 >
                   <PanelRightClose className="w-3.5 h-3.5" />
@@ -570,23 +402,11 @@ export function GurujiOverlay({
               </div>
             </div>
 
-            {/* 2. AI TEACHER STATUS & CONTEXT BAR (Avatar is exclusively used in the floating slide overlay) */}
+            {/* 2. STATUS & CONTEXT SCOPE BAR */}
             <div className="px-3 py-2 bg-gradient-to-r from-sky-500/5 via-indigo-500/5 to-transparent border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                {isSpeaking ? (
-                  <div className="flex items-end space-x-1 h-3.5 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/20">
-                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-3.5" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-2.5" style={{ animationDelay: '300ms' }} />
-                    <span className="w-1 bg-sky-500 rounded-full animate-bounce h-1.5" style={{ animationDelay: '450ms' }} />
-                    <span className="text-[9px] font-bold text-sky-500 ml-1">Speaking</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-1.5 text-zinc-400 text-[10px]">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>AI Ready</span>
-                  </div>
-                )}
+              <div className="flex items-center space-x-1.5 text-zinc-400 text-[10px]">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>AI Study Guide Ready</span>
               </div>
 
               {/* Quick Context Mode Selector */}
@@ -637,7 +457,7 @@ export function GurujiOverlay({
                   }`}
                 >
                   <BookOpen className="w-3 h-3" />
-                  <span>Explain</span>
+                  <span>Notes</span>
                 </button>
 
                 <button
@@ -650,7 +470,7 @@ export function GurujiOverlay({
                   }`}
                 >
                   <MessageSquare className="w-3 h-3" />
-                  <span>Ask {chatMessages.length > 0 && `(${chatMessages.length})`}</span>
+                  <span>Q&A {chatMessages.length > 0 && `(${chatMessages.length})`}</span>
                 </button>
               </div>
 
@@ -673,18 +493,18 @@ export function GurujiOverlay({
                   {isLoadingAI ? (
                     <div className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-center space-y-2.5">
                       <div className="w-6 h-6 rounded-full border-2 border-sky-500 border-t-transparent animate-spin mx-auto" />
-                      <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium">Guruji is teaching this slide...</p>
+                      <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium">Generating study notes...</p>
                     </div>
                   ) : currentExplanation ? (
                     <div className="space-y-2.5 animate-in fade-in">
-                      {/* Guruji Live Speech Transcript / Caption */}
+                      {/* Detailed Overview */}
                       <div className="p-3 rounded-2xl bg-sky-500/5 dark:bg-sky-950/30 border border-sky-500/20 space-y-1.5">
                         <div className="flex items-center space-x-1 text-[9px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                          <Volume2 className="w-3 h-3" />
-                          <span>Teaching Explanation</span>
+                          <FileText className="w-3 h-3" />
+                          <span>Key Lesson Breakdown</span>
                         </div>
                         <p className="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
-                          "{currentExplanation.speechText}"
+                          {currentExplanation.speechText}
                         </p>
                       </div>
 
@@ -733,14 +553,14 @@ export function GurujiOverlay({
                   ) : (
                     <div className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 text-center space-y-2.5">
                       <p className="text-xs text-zinc-500">
-                        Click below to have Guruji explain this lesson slide in detail.
+                        Click below to generate detailed study notes for this slide.
                       </p>
                       <button
                         type="button"
                         onClick={() => handleExplainCurrentSlide(false)}
                         className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-95 cursor-pointer"
                       >
-                        Explain Slide ⚡
+                        Generate Study Notes ⚡
                       </button>
                     </div>
                   )}
@@ -810,67 +630,7 @@ export function GurujiOverlay({
               )}
             </div>
 
-            {/* 5. PLAYBACK & SPEECH AUDIO BAR */}
-            <div className="p-2.5 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/60 flex items-center justify-between gap-1.5 shrink-0">
-              {/* Audio Action Buttons */}
-              <div className="flex items-center space-x-1">
-                {isSpeaking && !isPaused ? (
-                  <button
-                    type="button"
-                    onClick={() => speechEngine.pause()}
-                    className="p-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-white transition"
-                    title="Pause Speech"
-                  >
-                    <Pause className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isPaused) {
-                        speechEngine.resume();
-                      } else if (currentExplanation?.speechText) {
-                        speechEngine.speak(currentExplanation.speechText, voiceSettings.language);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white transition shadow-2xs"
-                    title="Play / Resume Speech"
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => speechEngine.stop()}
-                  className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition"
-                  title="Stop Audio"
-                >
-                  <Square className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => speechEngine.replay()}
-                  className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition"
-                  title="Replay Audio"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Explain Again Action Button */}
-              <button
-                type="button"
-                onClick={() => handleExplainCurrentSlide(false)}
-                className="px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-[10px] font-bold text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
-                title="Re-explain Current Slide"
-              >
-                ⚡ Explain Again
-              </button>
-            </div>
-
-            {/* 6. BOTTOM QUESTION / MICROPHONE INPUT BAR */}
+            {/* 5. BOTTOM QUESTION / MICROPHONE INPUT BAR */}
             <div className="p-2.5 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shrink-0">
               <form
                 onSubmit={(e) => {
@@ -882,13 +642,7 @@ export function GurujiOverlay({
                 {/* Microphone Speech Recognition Button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isListening) {
-                      speechEngine.stopListening();
-                    } else {
-                      speechEngine.startListening();
-                    }
-                  }}
+                  onClick={toggleSpeechRecognition}
                   className={`p-2 rounded-xl border transition active:scale-95 shrink-0 ${
                     isListening
                       ? 'bg-red-500/20 border-red-500 text-red-500 animate-pulse'
@@ -926,14 +680,26 @@ export function GurujiOverlay({
         )}
       </aside>
 
-      {/* VOICE SETTINGS MODAL */}
+      {/* VOICE & AI SETTINGS MODAL */}
       <GurujiVoiceSettingsModal
         isOpen={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
         settings={voiceSettings}
-        availableVoices={speechEngine.getAvailableVoices()}
-        onSave={(newSettings) => setVoiceSettings(newSettings)}
-        onTestVoice={(text, lang) => speechEngine.speak(text, lang)}
+        availableVoices={[]}
+        onSave={(newSettings) => {
+          setVoiceSettings(newSettings);
+          try {
+            localStorage.setItem('tg_guruji_voice_settings', JSON.stringify(newSettings));
+          } catch (e) {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-settings-sync', { detail: { settings: newSettings } }));
+          }
+        }}
+        onTestVoice={(text, lang) => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('guruji-test-voice', { detail: { text, lang } }));
+          }
+        }}
       />
 
       {/* FULL COURSE SCANNER MODAL */}
@@ -941,7 +707,7 @@ export function GurujiOverlay({
         isOpen={isScanModalOpen}
         onClose={() => setIsScanModalOpen(false)}
         course={course}
-        language={voiceSettings.language}
+        language={siteLanguage || 'en'}
         onScanComplete={(k) => setCourseKnowledge(k)}
         onExplainCourse={() => {
           setContextMode('course');

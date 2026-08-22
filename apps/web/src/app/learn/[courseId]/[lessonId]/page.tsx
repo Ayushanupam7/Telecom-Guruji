@@ -107,6 +107,18 @@ export default function RedesignedStudentLearningPlayer({
     }
   }, [isMaximized]);
 
+  // Stop and cancel all speech synthesis when closing or leaving the course player
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        try {
+          window.speechSynthesis?.cancel();
+        } catch (e) {}
+        window.dispatchEvent(new CustomEvent('guruji-stop-all-speech'));
+      }
+    };
+  }, []);
+
   // Progress Tracking & Quiz Attempts
   const [completedSlideIds, setCompletedSlideIds] = useState<Set<string>>(new Set());
   const [passedQuizIds, setPassedQuizIds] = useState<Set<string>>(new Set());
@@ -786,7 +798,15 @@ export default function RedesignedStudentLearningPlayer({
             {/* Back Button */}
             <Link
               href={`/courses/${course.id}`}
-              className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shrink-0"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  try {
+                    window.speechSynthesis?.cancel();
+                  } catch (e) {}
+                  window.dispatchEvent(new CustomEvent('guruji-stop-all-speech'));
+                }
+              }}
+              className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shrink-0 cursor-pointer"
               title="Back to Course Details"
             >
               <ArrowLeft className="w-4 h-4" />
