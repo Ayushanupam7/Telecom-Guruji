@@ -262,10 +262,16 @@ export class GurujiSpeechEngine {
       .trim();
 
     const voice = this.selectBestVoice(langToUse);
-    const hasConfirmedMaleVoice = Boolean(voice && this.isMaleVoice(voice) && !this.isFemaleVoice(voice));
+    const langPrefix = langToUse.slice(0, 2).toLowerCase();
+    const hasNativeLocalVoice = voice && voice.lang.toLowerCase().startsWith(langPrefix) && !this.isFemaleVoice(voice);
 
-    // If client browser does not have an explicit confirmed MALE voice, route to Neural Male TTS stream!
-    if (!hasConfirmedMaleVoice || !this.synth) {
+    // If client browser does not have a native male voice pack for regional languages, use the streaming TTS fallback!
+    if (!hasNativeLocalVoice && ['ta', 'te', 'kn', 'ml', 'bn', 'mr', 'gu'].includes(langPrefix)) {
+      this.speakViaAudioStream(cleanedText, langToUse);
+      return;
+    }
+
+    if (!this.synth || (voice && this.isFemaleVoice(voice))) {
       this.speakViaAudioStream(cleanedText, langToUse);
       return;
     }
